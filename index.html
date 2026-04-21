@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Mustit 가격비교</title>
+<style>
+:root{--bg:#f5f4f0;--bg2:#fff;--bg3:#f1efe8;--bd:rgba(0,0,0,.10);--bd2:rgba(0,0,0,.18);--tx:#1a1a18;--tx2:#5a5a56;--tx3:#9a9a94;--mu:#C00000;--blue:#378ADD;--gr:#27500A;--gr-bg:#EAF3DE;--gr-bd:#C0DD97;--rd:#A32D2D;--rd-bg:#FCEBEB;--rd-bd:#F09595;--ib:#E6F1FB;--ibd:#85B7EB;--itx:#0C447C;--r:8px;--rl:12px}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252522;--bg3:#2e2e2b;--bd:rgba(255,255,255,.10);--bd2:rgba(255,255,255,.18);--tx:#e8e6de;--tx2:#a8a69e;--tx3:#6a6a64;--ib:#0c2540;--ibd:#185fa5;--itx:#85b7eb;--gr-bg:#0d2206;--gr-bd:#3b6d11;--gr:#97c459;--rd-bg:#2a0a0a;--rd-bd:#791f1f}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--tx);font-size:13px;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;width:100vw;max-width:100vw;overflow:hidden}
+.page{display:none;flex-direction:column;flex:1;min-height:0}
+.page.active{display:flex}
+/* topbar */
+.bar{background:var(--bg2);border-bottom:.5px solid var(--bd);padding:9px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo{font-size:13px;font-weight:600;letter-spacing:.04em}
+.logo em{color:var(--mu);font-style:normal}
+.sw{display:flex;gap:6px;flex:1;max-width:540px}
+.si{flex:1;height:32px;font-size:12px;padding:0 10px;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg3);color:var(--tx)}
+.si:focus{outline:none;border-color:var(--blue)}
+.si::placeholder{color:var(--tx3)}
+.btn{height:32px;padding:0 12px;font-size:12px;font-weight:500;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg2);color:var(--tx);cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+.btn:hover{background:var(--bg3)}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.pri:hover{opacity:.9}
+.btn.xl{background:#217346;color:#fff;border-color:#185c37;gap:6px}
+.btn.xl:hover{background:#185c37}
+.btn.xl:active{transform:scale(.97)}
+/* key indicator */
+.kbadge{font-size:10px;padding:3px 9px;border-radius:20px;cursor:pointer;flex-shrink:0;border:.5px solid}
+.kbadge.ok{background:var(--gr-bg);color:var(--gr);border-color:var(--gr-bd)}
+.kbadge.ng{background:var(--rd-bg);color:var(--rd);border-color:var(--rd-bd)}
+/* product header */
+.ph{background:var(--bg2);border-bottom:.5px solid var(--bd);padding:8px 14px;display:flex;align-items:stretch;gap:12px;flex-shrink:0}
+.ph-thumb{width:76px;height:76px;border-radius:var(--r);overflow:hidden;border:.5px solid var(--bd);background:var(--bg3);flex-shrink:0}
+.ph-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+/* 이미지 우측: 위→아래 품번 / 상품명 / 네이버쇼핑 최저가 */
+.ph-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.ph-row{display:flex;align-items:center;gap:8px}
+.ph-code{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--tx);background:#F5F5F3;border:.5px solid var(--bd);border-radius:6px;padding:3px 9px}
+.ph-nv{height:24px;font-size:11px;padding:0 9px;gap:4px;color:var(--tx2)}
+.ph-nv:hover{background:var(--bg3);color:var(--tx)}
+.ph-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.ph-lowprice{display:flex;align-items:baseline;gap:8px}
+.ph-lowprice .ph-lbl{font-size:11px;color:var(--tx3)}
+.ph-lowprice .p{font-size:15px;font-weight:700;color:var(--mu)}
+/* scroll — 외부 스크롤 + 순위 섹션 내부 스크롤의 하이브리드 */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 12px;display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0;width:100%;max-width:100%}
+/* section */
+.sec{background:var(--bg2);border:.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;min-width:0;width:100%;max-width:100%}
+#sec-rank{display:flex;flex-direction:column;flex-shrink:0}
+#sec-match{flex-shrink:0}
+.sch{padding:6px 12px;border-bottom:.5px solid var(--bd);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sch-t{font-size:12px;font-weight:600}
+.sch-s{font-size:10px;color:var(--tx3)}
+.tg{margin-left:auto;display:flex;background:var(--bg3);border-radius:var(--r);padding:2px;gap:2px;border:.5px solid var(--bd)}
+.tg button{font-size:11px;padding:3px 9px;border-radius:6px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-weight:500}
+.tg button.on{background:var(--bg2);color:var(--tx);border:.5px solid var(--bd)}
+/* rank table — 자체 스크롤로 매칭 섹션이 항상 보이도록. 뷰포트의 절반 남짓을 상한으로. */
+.rx{width:100%;max-width:100%;overflow-x:auto;overflow-y:auto;max-height:45vh;min-height:160px}
+.rx.expanded{max-height:60vh}
+.rt{width:100%;table-layout:fixed;border-collapse:collapse;word-break:keep-all}
+.rt col.c-rk{width:4%}
+.rt col.c-nr{width:3%}
+.rt col.c-pr{width:6%}
+.rt col.c-sl{width:7%}
+.rt thead th{position:sticky;z-index:2;background:var(--bg3)}
+.rt thead tr:first-child th{top:0}
+.rt thead tr:nth-child(2) th{top:25px}
+.rt th,.rt td{border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd)}
+.rt th:last-child,.rt td:last-child{border-right:none}
+.rt tbody tr:last-child td{border-bottom:none}
+.thp{font-size:12px;font-weight:600;padding:4px 2px;text-align:center;background:var(--bg3);color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thp.mu{color:var(--mu)}
+.ths{font-size:11px;color:var(--tx3);padding:3px 2px;text-align:center;background:var(--bg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tkn{font-size:12px;padding:3px 2px;text-align:center;color:var(--tx3);background:var(--bg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tkn.r1{color:var(--mu);font-weight:700;font-size:15px}
+.tkn.r2{color:#888;font-weight:600}
+.tkn.r3{color:#aaa;font-weight:600}
+.rrow{transition:background .1s}
+.tpr.clk{cursor:pointer}
+.tpr.clk:hover{background:color-mix(in srgb,var(--blue) 8%,var(--bg2))}
+/* 더보기 버튼 */
+#rank-more-wrap{border-top:.5px solid var(--bd);display:flex;justify-content:center;padding:5px;background:var(--bg2)}
+.more-btn{font-size:11px;font-weight:500;padding:4px 14px;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg3);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.more-btn:hover{background:var(--bg2)}
+.more-btn:active{transform:scale(.97)}
+/* 몰별 2서브컬럼(가격/판매자) — 판매자 이름이 길면 자연 개행 */
+.rt tbody tr{height:auto}
+.rt tbody td{vertical-align:middle}
+.tnr{font-size:10.5px;padding:5px 2px;text-align:center;color:var(--tx2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.tnr.na{color:var(--tx3);opacity:.55;font-weight:400}
+.tpr{font-size:12px;padding:5px 3px;text-align:center;vertical-align:middle;color:#000;position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+.tpr.em{color:var(--tx3);font-weight:400}
+.tsl{font-size:10.5px;padding:5px 3px;text-align:center;color:#7F7F7F;line-height:1.3;vertical-align:middle;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* 최저가 아이콘(★) — 셀 좌상단에 배지 형태로 부착 */
+.lbg{position:absolute;top:4px;left:4px;color:#FFC000;line-height:0;pointer-events:none}
+.lbg svg{display:block}
+/* matching 2-col */
+.mb{display:flex;min-width:0}
+.mw{flex:1 1 0;min-width:0;overflow-x:hidden;border-right:.5px solid var(--bd)}
+.mt{width:100%;table-layout:fixed;border-collapse:collapse}
+.mt col.c-lb{width:12%}
+.mt col.c-pl{width:17.6%}  /* (100-12)/5 = 17.6 */
+.mt th,.mt td{border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd)}
+.mt th:last-child,.mt td:last-child{border-right:none}
+.mt tbody tr:last-child td{border-bottom:none}
+.mth{font-size:12px;font-weight:600;padding:7px 6px;text-align:center;background:var(--bg3);color:var(--tx2)}
+.mth.mu{color:var(--mu)}
+.mlb{font-size:12px;font-weight:600;padding:6px 8px;text-align:center;background:var(--bg3);color:var(--tx2)}
+.mc{padding:7px 4px;text-align:center;cursor:pointer;transition:background .1s;min-height:48px;vertical-align:middle;position:relative;overflow:hidden}
+.mc:hover{background:color-mix(in srgb,var(--blue) 8%,var(--bg2))}
+.mc.active{background:var(--ib);outline:1.5px solid var(--blue);outline-offset:-1px;z-index:1}
+.mc.em{color:var(--tx3);cursor:default;font-size:14px}
+.mc.em:hover{background:transparent}
+.cp{font-size:15px;font-weight:600;display:block;color:#000}
+.cd{font-size:13px;display:block;margin-top:4px;white-space:nowrap}
+.cd.dn{color:#27a050}
+.cd.up{color:var(--rd)}
+.cdiff{opacity:.85;font-weight:500;font-size:13px}
+/* detail panel */
+.dp{width:236px;min-width:236px;display:flex;flex-direction:column;overflow-y:auto;min-height:300px;align-self:stretch}
+#dc{flex:1}
+.de{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:200px;gap:6px;padding:20px;text-align:center}
+.de svg{opacity:.18}
+.de span{font-size:11px;color:var(--tx3);line-height:1.7}
+.di img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--bg3);border-bottom:.5px solid var(--bd)}
+.db{padding:11px;overflow-y:auto}
+.dbdg{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--ib);color:var(--itx);border:.5px solid var(--ibd);display:inline-block;margin-bottom:7px}
+.dpn{font-size:12px;font-weight:500;line-height:1.5;margin-bottom:2px}
+.dsl{font-size:10px;color:var(--tx3);margin-bottom:10px}
+/* ── 상세 패널 가격/정보 블록 ── */
+.det-sep{border:none;border-top:.5px solid var(--bd);margin:10px 0}
+/* 네이버쇼핑가 메인 */
+.price-main{margin-bottom:10px}
+.price-main .pm-lbl{font-size:10px;color:var(--tx3);margin-bottom:1px}
+.price-main .pm-val{font-size:22px;font-weight:700;color:var(--tx);line-height:1.15}
+.price-main .pm-val span{font-size:14px;font-weight:500}
+/* 가격 흐름 */
+.price-flow{display:flex;flex-direction:column;gap:4px}
+.pf-row{display:flex;align-items:baseline;justify-content:space-between;font-size:12px}
+.pf-row .pk{color:var(--tx2)}
+.pf-row .pv{font-weight:500;color:var(--tx)}
+.pf-row .pv.strike{text-decoration:line-through;color:var(--tx3);font-weight:400;font-size:11px}
+.pf-row .pv.benefit{color:var(--mu);font-weight:700;font-size:14px}
+.pf-badge{font-size:10px;font-weight:700;color:var(--mu);margin-left:4px}
+.pf-sub{display:flex;align-items:baseline;justify-content:space-between;font-size:11px;padding-left:2px}
+.pf-sub .pk{color:var(--tx3)}
+.pf-sub .pk::before{content:"└ ";color:var(--bd2)}
+.pf-sub .pv{color:var(--tx2)}
+.pf-sub.naver .pk{color:#00a843}
+.pf-sub.naver .pv{color:#00a843;font-weight:600}
+.pf-sub.pay .pk{color:#5c6bc0}
+.pf-sub.pay .pv{color:#5c6bc0;font-weight:600}
+.pf-note{font-size:9px;color:var(--tx3);line-height:1.5;padding-left:10px;margin-top:1px}
+.pv.ss-unavail-inline{color:var(--tx3);font-size:11px;font-weight:400;font-style:italic}
+/* 정보 행 */
+.info-rows{display:flex;flex-direction:column;gap:5px}
+.irow{display:flex;align-items:center;justify-content:space-between;font-size:11px}
+.irow .ik{color:var(--tx3)}
+.irow .iv{color:var(--tx);font-weight:500;text-align:right}
+.iv-free{color:#1a8a3a;font-weight:700}
+/* 옵션별 재고 */
+.opt-sec{margin-top:0}
+.opt-sec-title{font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.05em;margin-bottom:5px}
+.opt-grid{display:flex;flex-direction:column;gap:3px}
+.opt-row{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--bg3);border-radius:6px;border:.5px solid var(--bd)}
+.opt-row.sold{opacity:.4}
+.opt-lbl{font-size:11px;color:var(--tx)}
+.opt-stock{font-size:11px;font-weight:600;flex-shrink:0}
+.opt-avail{color:#1a8a3a}
+.opt-sold{color:var(--tx3)}
+/* 버튼 */
+.lbtns{display:flex;flex-direction:column;gap:5px;margin-top:12px}
+.lbtn{width:100%;height:32px;font-size:11px;font-weight:600;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg3);color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.01em}
+.lbtn:hover{background:var(--bg)}
+.lbtn.lbtn-naver{background:#03c75a;border-color:#03c75a;color:#fff}
+.lbtn.lbtn-naver:hover{background:#02b350}
+/* settings */
+.ss{flex:1;overflow-y:auto;padding:16px}
+.hint{font-size:11px;color:var(--tx3);margin-bottom:12px;line-height:1.7}
+.asec{background:var(--bg2);border:.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
+.asec-h{padding:10px 14px;border-bottom:.5px solid var(--bd);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.asec-b{padding:14px;display:flex;flex-direction:column;gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.flbl{font-size:11px;color:var(--tx2)}
+.trow{display:flex;gap:8px;align-items:center}
+.tres{font-size:11px;padding:6px 10px;border-radius:var(--r);display:none}
+.tres.ok{background:var(--gr-bg);color:var(--gr);border:.5px solid var(--gr-bd);display:block}
+.tres.ng{background:var(--rd-bg);color:var(--rd);border:.5px solid var(--rd-bd);display:block}
+.cw{background:var(--bg2);border:.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:10px}
+.ct{width:100%;border-collapse:collapse}
+.ct th,.ct td{border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd)}
+.ct th:last-child,.ct td:last-child{border-right:none}
+.ct tbody tr:last-child td{border-bottom:none}
+.cth{font-size:11px;font-weight:600;padding:8px 10px;text-align:center;background:var(--bg3);color:var(--tx2)}
+.cth.mu{color:var(--mu)}
+.ctl{font-size:12px;font-weight:600;padding:8px 10px;text-align:center;background:var(--bg3);color:var(--tx2);min-width:60px}
+.ctd{padding:6px 8px}
+.ci{width:100%;height:28px;font-size:11px;padding:0 8px;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg3);color:var(--tx)}
+.ci:focus{outline:none;border-color:var(--blue);background:var(--bg2)}
+.ci::placeholder{color:var(--tx3)}
+.delbtn{width:28px;height:28px;border-radius:var(--r);border:.5px solid var(--bd2);background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1}
+.delbtn:hover{background:var(--rd-bg);color:var(--rd);border-color:var(--rd-bd)}
+.addbtn{width:100%;height:32px;font-size:12px;border-radius:var(--r);border:.5px dashed var(--bd2);background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.addbtn:hover{background:var(--bg3);color:var(--tx2)}
+/* ── 대량 조회 모달 ── */
+.bm-ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.bm{background:var(--bg2);border:.5px solid var(--bd2);border-radius:var(--rl);width:500px;max-width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.22)}
+.bm-head{padding:12px 16px;border-bottom:.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.bm-ttl{font-size:13px;font-weight:600}
+.bm-x{width:26px;height:26px;border:none;background:transparent;cursor:pointer;color:var(--tx3);font-size:14px;display:flex;align-items:center;justify-content:center;border-radius:var(--r);line-height:1}
+.bm-x:hover{background:var(--bg3);color:var(--tx)}
+.bm-body{padding:16px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;min-height:0}
+.bm-foot{padding:10px 16px;border-top:.5px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-shrink:0}
+.bm-elapsed{font-size:12px;color:var(--tx3);margin-right:auto}
+.bm-lbl{font-size:11px;color:var(--tx2);margin-bottom:5px;font-weight:500}
+.bm-ta{width:100%;height:110px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg3);color:var(--tx);resize:vertical;line-height:1.7;font-family:inherit}
+.bm-ta:focus{outline:none;border-color:var(--blue);background:var(--bg2)}
+.bm-ta::placeholder{color:var(--tx3)}
+.bm-modes{display:flex;flex-direction:column;gap:7px}
+.bm-mode{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;border:.5px solid var(--bd);border-radius:var(--r);cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.bm-mode:hover{background:var(--bg3)}
+.bm-mode.sel{border-color:var(--blue);background:var(--ib)}
+.bm-mode input[type=radio]{margin-top:2px;flex-shrink:0;accent-color:var(--blue);cursor:pointer}
+.bm-mn{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:2px}
+.bm-md{font-size:11px;color:var(--tx3);line-height:1.55}
+/* 진행 */
+.bm-prog-wrap{height:5px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:6px}
+.bm-prog{height:100%;background:var(--blue);border-radius:4px;transition:width .35s}
+.bm-stat-row{display:flex;justify-content:space-between;font-size:11px;color:var(--tx3);margin-bottom:2px}
+.bm-stat-row strong{color:var(--tx)}
+.bm-items{display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto;padding-right:2px}
+.bm-item{display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0}
+.bm-ic{width:16px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:9px;font-weight:700}
+.bm-ic.ok{background:var(--gr-bg);color:var(--gr)}
+.bm-ic.ng{background:var(--rd-bg);color:var(--rd)}
+.bm-ic.run{width:14px;height:14px;border:1.5px solid var(--bd);border-top-color:var(--blue);animation:sp .65s linear infinite;margin:1px}
+.bm-ic.wait{background:var(--bg3);color:var(--tx3)}
+.bm-iq{flex:1;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-is{font-size:10px;color:var(--tx3);flex-shrink:0;min-width:52px;text-align:right}
+/* 완료 요약 */
+.bm-sum{padding:11px 14px;background:var(--bg3);border:.5px solid var(--bd);border-radius:var(--r);font-size:12px;display:flex;flex-direction:column;gap:4px;line-height:1.7}
+/* toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);padding:9px 16px;font-size:12px;border-radius:var(--r);border:.5px solid var(--bd);background:var(--bg2);z-index:999;opacity:0;transition:all .2s;max-width:500px;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--rd-bg);color:var(--rd);border-color:var(--rd-bd)}
+.toast.suc{background:var(--gr-bg);color:var(--gr);border-color:var(--gr-bd)}
+/* spinner */
+.spin{width:13px;height:13px;border:1.5px solid var(--bd);border-top-color:var(--blue);border-radius:50%;animation:sp .65s linear infinite;display:none;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* skeleton shimmer */
+@keyframes shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+.sk-wrap{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.sk-header{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.sk-icon{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:linear-gradient(90deg,var(--bg3) 25%,var(--bd) 50%,var(--bg3) 75%);background-size:600px 100%;animation:shimmer 1.4s infinite linear}
+.sk-title{display:flex;flex-direction:column;gap:5px}
+.sk-bar{height:10px;border-radius:4px;background:linear-gradient(90deg,var(--bg3) 25%,var(--bd) 50%,var(--bg3) 75%);background-size:600px 100%;animation:shimmer 1.4s infinite linear}
+.sk-row{display:grid;grid-template-columns:12% repeat(5,1fr);gap:6px;align-items:center}
+.sk-cell{height:38px;border-radius:6px;background:linear-gradient(90deg,var(--bg3) 25%,var(--bd) 50%,var(--bg3) 75%);background-size:600px 100%;animation:shimmer 1.4s infinite linear}
+.sk-cell:nth-child(2){animation-delay:.05s}
+.sk-cell:nth-child(3){animation-delay:.10s}
+.sk-cell:nth-child(4){animation-delay:.15s}
+.sk-cell:nth-child(5){animation-delay:.20s}
+.sk-cell:nth-child(6){animation-delay:.25s}
+.sk-label{height:38px;border-radius:6px;background:linear-gradient(90deg,var(--bg3) 25%,var(--bd) 50%,var(--bg3) 75%);background-size:600px 100%;animation:shimmer 1.4s infinite linear;opacity:.6}
+.sk-status{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 0 2px;font-size:11px;color:var(--tx3)}
+.sk-dots{display:flex;gap:4px}
+.sk-dot{width:5px;height:5px;border-radius:50%;background:var(--tx3);animation:sk-bounce .9s ease-in-out infinite}
+.sk-dot:nth-child(2){animation-delay:.18s}
+.sk-dot:nth-child(3){animation-delay:.36s}
+@keyframes sk-bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ MAIN ═══ -->
+<div class="page active" id="pg-main">
+  <div class="bar">
+    <div class="logo">MUSTIT <em>가격비교</em></div>
+    <div class="sw">
+      <input class="si" id="qinput" placeholder="품번 입력  예) 구찌 GC-536249"
+             onkeydown="if(event.key==='Enter')doSearch()"/>
+      <button class="btn" id="sbtn" onclick="doSearch()">
+        <span id="stxt">검색</span>
+        <div class="spin" id="spin"></div>
+      </button>
+      <button class="btn" onclick="openBulk()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        대량 조회
+      </button>
+    </div>
+    <div id="kbdg" class="kbadge ng" onclick="openSettings()" style="margin-left:auto" title="클릭하여 API 설정">API 키 미설정</div>
+    <button class="btn" onclick="openSettings()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+      설정
+    </button>
+    <button class="btn xl" id="dlbtn" onclick="downloadExcel()" style="display:none" title="검색 결과를 Excel로 다운로드">
+      <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+        <path d="M8.5 0H1C0.45 0 0 0.45 0 1V15C0 15.55 0.45 16 1 16H13C13.55 16 14 15.55 14 15V5.5L8.5 0Z" fill="#fff" fill-opacity=".22"/>
+        <path d="M8.5 0V5.5H14L8.5 0Z" fill="#fff" fill-opacity=".15"/>
+        <line x1="4.2" y1="8.5" x2="9.8" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="9.8" y1="8.5" x2="4.2" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="4" y1="11.5" x2="10" y2="11.5" stroke="white" stroke-width="1" stroke-opacity=".5"/>
+      </svg>
+      Excel 다운로드
+    </button>
+  </div>
+
+  <div class="ph" id="ph" style="display:none">
+    <div class="ph-thumb"><img id="phimg" src="" onerror="this.style.display='none'"/></div>
+    <div class="ph-info">
+      <div class="ph-row">
+        <div class="ph-code" id="phcode">—</div>
+        <button class="btn ph-nv" id="phnv" onclick="openNaverSearch()" title="네이버쇼핑에서 검색">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          네이버쇼핑에서 검색
+        </button>
+      </div>
+      <div class="ph-name" id="phname">검색 결과</div>
+      <div class="ph-lowprice"><span class="ph-lbl">네이버쇼핑 최저가</span><span class="p" id="phprice">—</span></div>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <div class="sec" id="sec-rank" style="display:none">
+      <div class="sch"><div class="sch-t">가격 경쟁 현황</div><div class="sch-s" style="margin-left:auto">가격 영역을 클릭하면 사이트로 랜딩됩니다.</div></div>
+      <div class="rx"><table class="rt">
+        <colgroup>
+          <col class="c-rk"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+          <col class="c-nr"/><col class="c-pr"/><col class="c-sl"/>
+        </colgroup>
+        <thead>
+          <tr>
+            <th rowspan="2" class="thp" style="background:var(--bg3);border-right:.5px solid var(--bd);color:var(--tx2)">순위</th>
+            <th colspan="3" class="thp mu">머스트잇</th>
+            <th colspan="3" class="thp">트렌비</th>
+            <th colspan="3" class="thp">SSG</th>
+            <th colspan="3" class="thp">롯데온</th>
+            <th colspan="3" class="thp">스마트스토어</th>
+            <th colspan="3" class="thp">기타</th>
+          </tr>
+          <tr>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">판매자</th>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">판매자</th>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">판매자</th>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">판매자</th>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">판매자</th>
+            <th class="ths">노출순위</th><th class="ths">가격</th><th class="ths">사이트</th>
+          </tr>
+        </thead>
+        <tbody id="rankbody"></tbody>
+      </table></div>
+      <div id="rank-more-wrap" style="display:none"><button class="more-btn" id="rank-more" onclick="toggleRank()">더보기</button></div>
+    </div>
+
+    <div class="sec" id="sec-match" style="display:none">
+      <div class="sch">
+        <div class="sch-t">판매자 순 매칭</div>
+        <div class="sch-s" id="match-sch-s">셀 클릭 → 해당 몰 상품 세부 정보</div>
+        <div id="enrich-timing" style="font-size:11px;color:var(--tx3);margin-left:auto;opacity:.7"></div>
+        <div class="tg">
+          <button class="on" onclick="setTog(0,this)">네이버쇼핑가</button>
+          <button onclick="setTog(1,this)">최대혜택가</button>
+        </div>
+      </div>
+      <!-- 판매자 정보 로딩 중 스켈레톤 -->
+      <div id="match-skeleton" style="display:none">
+        <div class="sk-wrap">
+          <div class="sk-row"><div class="sk-label"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div></div>
+          <div class="sk-row"><div class="sk-label"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div></div>
+          <div class="sk-row"><div class="sk-label"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div><div class="sk-cell"></div></div>
+          <div class="sk-status">
+            <div class="sk-dots"><span class="sk-dot"></span><span class="sk-dot"></span><span class="sk-dot"></span></div>
+            <span>판매자 정보를 불러오는 중입니다</span>
+          </div>
+        </div>
+      </div>
+      <div id="match-content">
+      <div class="mb">
+        <div class="mw">
+          <table class="mt">
+            <colgroup>
+              <col class="c-lb"/>
+              <col class="c-pl"/><col class="c-pl"/><col class="c-pl"/>
+              <col class="c-pl"/><col class="c-pl"/>
+            </colgroup>
+            <thead><tr>
+              <th class="mth">판매자</th>
+              <th class="mth mu">머스트잇</th>
+              <th class="mth">트렌비</th>
+              <th class="mth">SSG</th>
+              <th class="mth">롯데온</th>
+              <th class="mth">스마트스토어</th>
+            </tr></thead>
+            <tbody id="matchbody"></tbody>
+          </table>
+        </div>
+        <div class="dp">
+          <div class="de" id="de">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+            <span>셀을 클릭하면<br>해당 몰의 상품<br>세부 정보가 표시됩니다</span>
+          </div>
+          <div id="dc" style="display:none"></div>
+        </div>
+      </div>
+      </div><!-- /match-content -->
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="page" id="pg-settings">
+  <div class="bar">
+    <button class="btn" onclick="goPage('pg-main')">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L4 6l4 4"/></svg>
+      돌아가기
+    </button>
+    <div class="logo" style="margin-left:4px">설정</div>
+    <button class="btn pri" style="margin-left:auto" onclick="saveAll()">저장</button>
+  </div>
+  <div class="ss">
+
+    <div class="asec">
+      <div class="asec-h">
+        네이버 쇼핑 API 키
+        <button class="btn" style="height:28px;font-size:11px" id="testbtn" onclick="testKey()">연결 테스트</button>
+      </div>
+      <div class="asec-b">
+        <div class="hint">네이버 개발자센터(developers.naver.com) → 애플리케이션 등록 → [검색] API 선택 후 발급</div>
+        <div class="fld"><div class="flbl">Client ID</div><input class="si" id="aid" placeholder="Client ID"/></div>
+        <div class="fld"><div class="flbl">Client Secret</div><input class="si" id="asec2" type="password" placeholder="Client Secret"/></div>
+        <div id="tres"></div>
+      </div>
+    </div>
+
+    <div class="hint" style="margin-top:4px">판매자별 각 몰의 판매자 ID를 입력하세요.</div>
+    <div class="cw">
+      <table class="ct">
+        <thead><tr>
+          <th class="cth" style="width:60px">판매자</th>
+          <th class="cth mu">머스트잇</th><th class="cth">트렌비</th>
+          <th class="cth">SSG</th><th class="cth">롯데온</th>
+          <th class="cth">스마트스토어</th>
+          <th class="cth" style="width:34px"></th>
+        </tr></thead>
+        <tbody id="cfgbody"></tbody>
+      </table>
+    </div>
+    <button class="addbtn" onclick="addRow()">+ 판매자 추가</button>
+  </div>
+</div>
+
+</div>
+
+<!-- ═══ 대량 조회 모달 ═══ -->
+<div class="bm-ov" id="bm-ov" style="display:none" onclick="if(event.target===this)closeBulk()">
+  <div class="bm">
+    <div class="bm-head">
+      <div class="bm-ttl" id="bm-ttl">대량 조회</div>
+      <button class="bm-x" onclick="closeBulk()">✕</button>
+    </div>
+
+    <!-- ── 입력 ── -->
+    <div id="bm-idle">
+      <div class="bm-body">
+        <div>
+          <div class="bm-lbl">품번 목록 (한 줄에 하나씩)</div>
+          <textarea class="bm-ta" id="bm-ta" placeholder="W261TS07701W&#10;GC-536249&#10;..." oninput="updBmCnt()"></textarea>
+          <div style="font-size:11px;color:var(--tx3);margin-top:5px;min-height:16px" id="bm-cnt"></div>
+        </div>
+        <div>
+          <div class="bm-lbl">조회 방식</div>
+          <div class="bm-modes">
+            <label class="bm-mode sel" id="bm-card-fast">
+              <input type="radio" name="bmmode" value="fast" checked onchange="updBmMode()">
+              <div><div class="bm-mn">⚡ 빠른 조회</div><div class="bm-md">가격경쟁현황만 · 네이버쇼핑 API 기반 · 건당 약 2초</div></div>
+            </label>
+            <label class="bm-mode" id="bm-card-full">
+              <input type="radio" name="bmmode" value="full" onchange="updBmMode()">
+              <div><div class="bm-mn">🔍 전체 조회</div><div class="bm-md">판매자 매칭 포함 · 각 플랫폼 직접 수집 · 건당 약 50초</div></div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="bm-foot">
+        <button class="btn" onclick="closeBulk()">취소</button>
+        <button class="btn pri" onclick="startBulk()">조회 시작</button>
+      </div>
+    </div>
+
+    <!-- ── 진행 중 ── -->
+    <div id="bm-running" style="display:none">
+      <div class="bm-body">
+        <div>
+          <div class="bm-stat-row">
+            <span><strong id="bm-done-n">0</strong> / <strong id="bm-total-n">0</strong> 완료</span>
+            <span id="bm-pct">0%</span>
+          </div>
+          <div class="bm-prog-wrap"><div class="bm-prog" id="bm-prog" style="width:0%"></div></div>
+        </div>
+        <div class="bm-items" id="bm-run-list"></div>
+      </div>
+      <div class="bm-foot">
+        <span class="bm-elapsed" id="bm-elapsed"></span>
+        <button class="btn" id="bm-abort-btn" onclick="abortBulk()">중단</button>
+      </div>
+    </div>
+
+    <!-- ── 완료 ── -->
+    <div id="bm-done" style="display:none">
+      <div class="bm-body">
+        <div class="bm-sum" id="bm-sum"></div>
+        <div class="bm-items" id="bm-done-list"></div>
+      </div>
+      <div class="bm-foot">
+        <span class="bm-elapsed" id="bm-elapsed-done"></span>
+        <button class="btn" onclick="resetBulk()">다시 조회</button>
+        <button class="btn" onclick="closeBulk()">닫기</button>
+        <button class="btn xl" id="bm-xl-btn" onclick="downloadBulkExcel()" style="display:none">
+          <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+            <path d="M8.5 0H1C0.45 0 0 0.45 0 1V15C0 15.55 0.45 16 1 16H13C13.55 16 14 15.55 14 15V5.5L8.5 0Z" fill="#fff" fill-opacity=".22"/>
+            <path d="M8.5 0V5.5H14L8.5 0Z" fill="#fff" fill-opacity=".15"/>
+            <line x1="4.2" y1="8.5" x2="9.8" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="9.8" y1="8.5" x2="4.2" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          Excel 다운로드
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PLATS=['머스트잇','트렌비','SSG','롯데온','스마트스토어'];  // 매칭/설정용
+const PLATS_RANK=[...PLATS,'기타'];                             // 가격경쟁 현황 전용
+/* 최저가 배지 아이콘(★) — 폰트 컬러 대신 이걸로 표기 */
+const LO_ICON='<span class="lbg" title="최저가"><svg width="15" height="15" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.9 6.88 7.1.55-5.4 4.7 1.7 6.94L12 17.27l-6.3 3.8 1.7-6.94-5.4-4.7 7.1-.55L12 2z"/></svg></span>';
+let togMode=0, lastData=null, lastMatchRows=[], lastCfg={};
+const BASE='http://127.0.0.1:5050';
+
+/* ── 공통 fetch 래퍼 (에러 가시화) ── */
+async function api(path, opts){
+  const url = BASE + path;
+  try {
+    const res = await fetch(url, opts);
+    const ct  = res.headers.get('content-type') || '';
+    if (!ct.includes('json')) {
+      const txt = await res.text();
+      throw new Error(`서버 응답 오류 (${res.status}): ${txt.slice(0,120)}`);
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } catch(e) {
+    if(e.name === 'TypeError') throw new Error('서버에 연결할 수 없습니다. main.py가 실행 중인지 확인하세요.');
+    throw e;
+  }
+}
+
+/* ── 페이지 전환 ── */
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='pg-settings') loadSettings();
+}
+
+/* ── 네이버쇼핑 검색 페이지로 이동 ── */
+function openNaverSearch(){
+  const q = (document.getElementById('qinput').value || (lastData&&lastData.query) || '').trim();
+  if(!q){ toast('검색어가 없습니다'); return; }
+  const url = 'https://search.shopping.naver.com/search/all?query=' + encodeURIComponent(q);
+  window.open(url, '_blank');
+}
+
+/* ── 설정을 별도 창으로 — 메인 창의 검색 결과를 유지한 채 편집 ── */
+const IS_SETTINGS_WIN = new URLSearchParams(location.search).get('settings') === '1';
+function openSettings(){
+  if(IS_SETTINGS_WIN){ loadSettings(); return; }
+  // PyWebView가 시스템 브라우저로 넘길 때 상대경로가 C:\로 오해석되는 문제 방지 — 절대 URL 사용
+  const settingsUrl = BASE + '/?settings=1';
+  const w = window.open(settingsUrl, 'mustit_settings',
+                        'width=780,height=860,menubar=no,toolbar=no,location=no,scrollbars=yes');
+  if(!w){ toast('새 창이 차단됐습니다. 팝업 허용 후 다시 시도하세요.'); goPage('pg-settings'); }
+}
+
+/* ── 토스트 ── */
+function toast(msg, type='err'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`toast ${type} show`;
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('show'), 5000);
+}
+
+/* ── API 키 상태 ── */
+async function refreshKey(){
+  try{
+    const d=await api('/api/keys');
+    const el=document.getElementById('kbdg');
+    if(d.client_id && d.has_secret){
+      el.className='kbadge ok'; el.textContent='API 연결됨';
+    } else {
+      el.className='kbadge ng'; el.textContent='API 키 미설정';
+    }
+  } catch(e){ /* 무시 */ }
+}
+
+/* ── 검색 ── */
+/* ── 현재 검색 쿼리 (Phase-2 취소 판단용) ── */
+let _currentQuery = '';
+
+async function doSearch(){
+  const q=document.getElementById('qinput').value.trim();
+  if(!q) return;
+  _currentQuery = q;
+  document.getElementById('spin').style.display='inline-block';
+  document.getElementById('stxt').style.display='none';
+  document.getElementById('sbtn').disabled=true;
+  clearDetail();
+  try{
+    // ── Phase 1: 네이버 API만, 즉시 렌더링 ──
+    const data=await api(`/api/search?query=${encodeURIComponent(q)}`);
+    if(_currentQuery !== q) return; // 새 검색이 시작됐으면 무시
+    lastData=data;
+    renderAll(data);
+
+    // ── Phase 2: 판매자 enrich (백그라운드) ──
+    _startEnrich(q, data);
+  } catch(e){
+    toast(e.message);
+  } finally{
+    document.getElementById('spin').style.display='none';
+    document.getElementById('stxt').style.display='inline';
+    document.getElementById('sbtn').disabled=false;
+  }
+}
+
+function _showSkeleton(){
+  document.getElementById('sec-match').style.display='block';
+  document.getElementById('match-skeleton').style.display='block';
+  document.getElementById('match-content').style.display='none';
+  const s = document.getElementById('match-sch-s');
+  if(s) s.textContent = '';
+}
+function _hideSkeleton(){
+  document.getElementById('match-skeleton').style.display='none';
+  document.getElementById('match-content').style.display='block';
+  const s = document.getElementById('match-sch-s');
+  if(s) s.textContent = '셀 클릭 → 해당 몰 상품 세부 정보';
+}
+
+async function _startEnrich(q, phase1Data){
+  _showSkeleton();
+  const _t0 = Date.now();
+  try{
+    const edata = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
+    if(_currentQuery !== q) return; // 다른 검색 시작됐으면 무시
+    // Phase-2 데이터로 lastData 업데이트 후 재렌더
+    lastData = Object.assign({}, phase1Data, {
+      by_platform: edata.by_platform,
+      matching_rows: edata.matching_rows,
+      enriched: true,
+    });
+    _hideSkeleton();
+    renderAll(lastData);
+    // 타이밍 표시 (소요 시간)
+    const elapsed = ((Date.now() - _t0) / 1000).toFixed(1);
+    const tm = edata.timing;
+    let tip = `판매자 매칭 ${elapsed}s`;
+    if(tm?.enrich?.per_platform){
+      const parts = Object.entries(tm.enrich.per_platform)
+        .sort((a,b)=>b[1].total_sec - a[1].total_sec)
+        .map(([p,s])=>`${p} ${s.count}건 ${s.max_sec}s`);
+      tip += ' | ' + parts.join(' / ');
+    }
+    const timingEl = document.getElementById('enrich-timing');
+    if(timingEl) timingEl.textContent = tip;
+  } catch(e){
+    // enrich 실패해도 Phase-1 결과는 그대로 유지 (조용히 처리)
+    console.warn('enrich 실패:', e.message);
+    _hideSkeleton();
+    document.getElementById('sec-match').style.display='none';
+  }
+}
+
+function renderAll(data){
+  const top=data.top10?.[0];
+  document.getElementById('ph').style.display='flex';
+  document.getElementById('dlbtn').style.display='flex';
+  document.getElementById('phcode').textContent=data.query;
+  document.getElementById('phname').textContent=top?.name||data.query;
+  document.getElementById('phprice').textContent=top?top.price.toLocaleString('ko-KR')+'원':'—';
+  const img=document.getElementById('phimg');
+  img.src=top?.image||''; img.style.display=top?.image?'block':'none';
+  rankExpanded = false; // 새 검색 시 접은 상태로 초기화
+  renderRank(data.by_platform||{});
+  document.getElementById('sec-rank').style.display='block';
+  // 판매자 순 매칭: enriched=true 일 때만 테이블 표시
+  // enriched=false(Phase-1)이면 _showSkeleton()이 별도 처리
+  if(data.enriched){
+    const matchRows = (data.matching_rows||[]).filter(r=>PLATS.some(p=>r.cells?.[p]));
+    renderMatch(matchRows);
+    if(matchRows.length){
+      _hideSkeleton();
+      document.getElementById('sec-match').style.display='block';
+    } else {
+      document.getElementById('sec-match').style.display='none';
+    }
+  }
+}
+
+/* ── 순위 테이블: 각 행 = 플랫폼별 N위, 각 컬럼 = 해당 몰의 N위 상품 ── */
+let rankExpanded = false;
+const RANK_DEFAULT = 10;
+
+function toggleRank(){
+  rankExpanded = !rankExpanded;
+  if(lastData) renderRank(lastData.by_platform || {});
+  const rx = document.querySelector('#sec-rank .rx');
+  if(rx){ rx.classList.toggle('expanded', rankExpanded); rx.scrollTop = 0; }
+}
+
+function renderRank(byPlat){
+  const tb=document.getElementById('rankbody');
+  tb.innerHTML='';
+  const cols = PLATS_RANK.map(p => (byPlat && byPlat[p]) ? byPlat[p] : []);
+  const maxN = cols.reduce((a,c)=>Math.max(a,c.length), 0);
+  // 설정 판매자 ID 맵: { 플랫폼 → Set([seller_ids]) }
+  const cfgByPlat = {};
+  Object.values(lastCfg||{}).forEach(map=>{
+    Object.entries(map).forEach(([plat,sid])=>{
+      if(!sid) return;
+      if(!cfgByPlat[plat]) cfgByPlat[plat]=new Set();
+      cfgByPlat[plat].add(sid.trim().toLowerCase());
+    });
+  });
+  const wrap = document.getElementById('rank-more-wrap');
+  const btn  = document.getElementById('rank-more');
+  if(maxN === 0){
+    tb.innerHTML='<tr><td colspan="19" style="padding:20px;text-align:center;color:var(--tx3)">결과 없음</td></tr>';
+    if(wrap) wrap.style.display='none';
+    return;
+  }
+  // 전 영역 최저가 (모든 몰 × 모든 순위) — ★ 아이콘 배지 대상
+  const allPrices = [];
+  cols.forEach(c => c.forEach(it => { if(it) allPrices.push(it.price); }));
+  const overallMin = allPrices.length ? Math.min(...allPrices) : null;
+  const hasMore = maxN > RANK_DEFAULT;
+  const shownN  = (hasMore && !rankExpanded) ? RANK_DEFAULT : maxN;
+  if(wrap){
+    if(hasMore){
+      wrap.style.display='flex';
+      btn.textContent = rankExpanded ? '접기 ▲' : `더보기 (+${maxN - RANK_DEFAULT}위) ▼`;
+    } else {
+      wrap.style.display='none';
+    }
+  }
+  for(let i=0; i<shownN; i++){
+    const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
+    const rowItems = cols.map(c => c[i] || null);
+
+    const tr = document.createElement('tr');
+    tr.className = 'rrow';
+    tr.innerHTML = `<td class="tkn ${rc}">${i+1}</td>`;
+    rowItems.forEach((it, ci) => {
+      const tdN = document.createElement('td');  // 노출순위
+      const tdP = document.createElement('td');  // 가격
+      const tdS = document.createElement('td');  // 판매자/사이트
+      tdP.className = 'tpr';
+      tdS.className = 'tsl';
+      if(!it){
+        tdN.className = 'tnr na';
+        tdN.textContent = '—';
+        tdP.classList.add('em');
+        tdP.textContent = '—';
+        tdS.textContent = '—';
+      } else {
+        const isLow = overallMin !== null && it.price === overallMin;
+        const hasNrk = it.naver_rank != null;
+        tdN.className = 'tnr' + (hasNrk ? '' : ' na');
+        tdN.textContent = hasNrk ? String(it.naver_rank) : '—';
+        tdN.title = hasNrk ? '네이버쇼핑 랭킹순 노출 순위' : '노출 순위 정보 없음';
+        tdP.innerHTML = (isLow ? LO_ICON : '') + it.price.toLocaleString('ko-KR');
+        const txt = it.seller || it.mallName || '';
+        tdS.textContent = txt;
+        tdS.title = txt;
+        // 설정 판매자 여부에 따라 색상 분기
+        const _plat = PLATS_RANK[ci];
+        if(_plat !== '기타' && txt){
+          const isCfg = cfgByPlat[_plat] && cfgByPlat[_plat].has(txt.trim().toLowerCase());
+          tdS.style.color = isCfg ? '#666666' : '#4E95D9';
+        }
+        if(it.link){
+          const open = () => window.open(it.link, '_blank');
+          tdP.classList.add('clk');
+          tdP.onclick = open;
+        }
+      }
+      tr.appendChild(tdN); tr.appendChild(tdP); tr.appendChild(tdS);
+    });
+    tb.appendChild(tr);
+  }
+}
+
+/* ── 최대혜택가 계산 헬퍼 ──
+   renderPriceFlow 와 동일한 로직으로 최대혜택가를 숫자로 반환.
+   혜택 정보를 확정할 수 없는 경우(스마트스토어 결제수단 정보 없음 등) null 반환. */
+function calcMaxBenefit(cell){
+  const naverPrice = cell.price;
+  const isMustit   = (cell.platform === '머스트잇');
+  const isSSlike   = (cell.platform === '스마트스토어' || cell.platform === 'SSG');
+  const pi = cell._mustit_price_info || cell._det_price_info || null;
+
+  if(!pi || !pi.sell_price){
+    // price_info 없음 → 네이버쇼핑가 그대로 (스마트스토어는 null)
+    return isSSlike ? null : naverPrice;
+  }
+
+  const payDiscs = pi.payment_discounts || [];
+  const payTotal = payDiscs.reduce((s,d) => s + d.price, 0);
+
+  if(isMustit){
+    const navD  = pi.naver_discount || 0;
+    const maxB  = pi.max_benefit;
+    return (maxB != null ? maxB - navD : naverPrice) - payTotal;
+  } else if(isSSlike && payDiscs.length === 0){
+    return null;  // 쿠폰·포인트 혜택 정보 미제공
+  } else {
+    return naverPrice - payTotal;
+  }
+}
+
+/* ── 판매자 매칭 ── */
+function setTog(m,el){
+  togMode=m;
+  document.querySelectorAll('.tg button').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(lastData){
+    const rows=(lastData.matching_rows||[]).filter(r=>PLATS.some(p=>r.cells?.[p]));
+    renderMatch(rows);
+  }
+}
+
+function renderMatch(rows){
+  lastMatchRows = rows;          // showDet 인덱스 매칭용 — 필터된 행 그대로 보관
+  const tb=document.getElementById('matchbody');
+  tb.innerHTML='';
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="${1+PLATS.length}" style="padding:14px;text-align:center;color:var(--tx3);font-size:11px">설정에서 판매자를 먼저 등록하세요</td></tr>`;
+    return;
+  }
+  rows.forEach((row,ri)=>{
+    const cells=PLATS.map(p=>row.cells?.[p]||null);
+
+    // togMode 에 따라 표시 가격 결정 (최대혜택가 모드면 calcMaxBenefit 사용)
+    const dispPrices = cells.map(c => {
+      if(!c) return null;
+      return togMode === 1 ? calcMaxBenefit(c) : c.price;
+    });
+
+    const validPrices = dispPrices.filter(p => p != null);
+    const minP = validPrices.length ? Math.min(...validPrices) : null;
+    const basePrice = dispPrices[0]; // 머스트잇 기준 (차액 계산용)
+
+    const tr=document.createElement('tr');
+    let html=`<td class="mlb">${row.label}</td>`;
+    cells.forEach((cell,ci)=>{
+      if(!cell){html+=`<td class="mc em">—</td>`;return;}
+      const disp = dispPrices[ci];
+      if(disp == null){
+        // 혜택 정보 미제공 (스마트스토어 등)
+        html+=`<td class="mc em" onclick="showDet(${ri},${ci},this)" style="font-size:10px;cursor:pointer">정보없음</td>`;
+        return;
+      }
+      const lo=disp===minP, isMu=ci===0;
+      // 차액률(%) + 차액(원) 병기 — 머스트잇 기준 상대 비교
+      const diff=(!isMu&&basePrice!=null)?(disp-basePrice):null;
+      const pct=(!isMu&&basePrice!=null)?((disp-basePrice)/basePrice*100).toFixed(1):null;
+      const sign=diff!==null&&diff>0?'+':'';
+      const dh=pct!=null?`<span class="cd ${parseFloat(pct)>0?'up':'dn'}">${sign}${pct}% / <span class="cdiff">${sign}${diff.toLocaleString('ko-KR')}</span></span>`:'';
+      const icon=lo?LO_ICON:'';
+      html+=`<td class="mc" id="c-${ri}-${ci}" onclick="showDet(${ri},${ci},this)">
+        <span class="cp">${icon}${disp.toLocaleString('ko-KR')}</span>${dh}
+      </td>`;
+    });
+    tr.innerHTML=html;
+    tb.appendChild(tr);
+  });
+}
+
+/* ── 상세 패널 가격 흐름 렌더링 (전 플랫폼 공통) ── */
+function renderPriceFlow(cell, isMustit){
+  const fp = p => p!=null ? Number(p).toLocaleString('ko-KR')+'원' : '—';
+  const naverPrice = cell.price;
+  // 머스트잇: _mustit_price_info (더 정밀), 나머지: _det_price_info
+  const pi = cell._mustit_price_info || cell._det_price_info || null;
+  const isSmartstore = cell.platform === '스마트스토어' || cell.platform === 'SSG';
+
+  let rows = '';
+
+  if(pi && pi.sell_price){
+    const msrp     = pi.msrp;
+    const msrpR    = pi.msrp_rate;
+    const payDiscs = pi.payment_discounts || [];
+    const payTotal = payDiscs.reduce((s,d) => s + d.price, 0);
+
+    if(isMustit){
+      // ── 머스트잇 전용: API sell_price 기준 → DPS → 네이버 할인 ──
+      const sellP = pi.sell_price;
+      const discs = pi.discounts || [];
+      const navD  = pi.naver_discount || 0;
+      const navP  = pi.naver_pct || 0;
+      const maxB  = pi.max_benefit;
+
+      if(msrp && msrp > sellP){
+        rows += `<div class="pf-row">
+          <span class="pk">정상가</span>
+          <span class="pv strike">${fp(msrp)}${msrpR?`<span class="pf-badge">-${msrpR}%</span>`:''}</span>
+        </div>`;
+      }
+      rows += `<div class="pf-row">
+        <span class="pk">판매가</span>
+        <span class="pv">${fp(sellP)}</span>
+      </div>`;
+      discs.forEach(d=>{
+        rows += `<div class="pf-sub">
+          <span class="pk">${d.name}</span>
+          <span class="pv">−${Number(d.price).toLocaleString('ko-KR')}원 (${d.pct}%)</span>
+        </div>`;
+      });
+      if(navD > 0){
+        rows += `<div class="pf-sub naver">
+          <span class="pk">네이버 할인*</span>
+          <span class="pv">−${navD.toLocaleString('ko-KR')}원 (${navP}%)</span>
+        </div>
+        <div class="pf-note">* 네이버쇼핑 유입 시 추가 적용</div>`;
+      }
+      // 결제수단 할인
+      payDiscs.forEach(pd => {
+        const pct = sellP > 0 ? Math.round(pd.price / sellP * 1000) / 10 : 0;
+        rows += `<div class="pf-sub pay">
+          <span class="pk">${pd.name}</span>
+          <span class="pv">−${Number(pd.price).toLocaleString('ko-KR')}원${pct > 0 ? ` (${pct}%)` : ''}</span>
+        </div>`;
+      });
+      if(payDiscs.length > 0) rows += `<div class="pf-note">* 해당 결제수단 이용 시 적용</div>`;
+      const benefitVal = (maxB != null ? maxB - (navD || 0) : naverPrice) - payTotal;
+      rows += `<div class="pf-row" style="margin-top:4px;padding-top:6px;border-top:.5px solid var(--bd)">
+        <span class="pk" style="font-weight:600;color:var(--tx)">최대혜택가</span>
+        <span class="pv benefit">${fp(benefitVal)}</span>
+      </div>`;
+
+    } else {
+      // ── 기타 플랫폼: 네이버쇼핑가 기준 → 결제수단 할인 ──
+      if(msrp && msrp > naverPrice){
+        rows += `<div class="pf-row">
+          <span class="pk">정상가</span>
+          <span class="pv strike">${fp(msrp)}${msrpR?`<span class="pf-badge">-${msrpR}%</span>`:''}</span>
+        </div>`;
+      }
+      rows += `<div class="pf-row">
+        <span class="pk">판매가</span>
+        <span class="pv">${fp(naverPrice)}</span>
+      </div>`;
+      payDiscs.forEach(pd => {
+        const pct = naverPrice > 0 ? Math.round(pd.price / naverPrice * 1000) / 10 : 0;
+        rows += `<div class="pf-sub pay">
+          <span class="pk">${pd.name}</span>
+          <span class="pv">−${Number(pd.price).toLocaleString('ko-KR')}원${pct > 0 ? ` (${pct}%)` : ''}</span>
+        </div>`;
+      });
+      if(payDiscs.length > 0) rows += `<div class="pf-note">* 해당 결제수단 이용 시 적용</div>`;
+      if(isSmartstore && payDiscs.length === 0){
+        rows += `<div class="pf-row" style="margin-top:4px;padding-top:6px;border-top:.5px solid var(--bd)">
+          <span class="pk" style="font-weight:600;color:var(--tx)">최대혜택가</span>
+          <span class="pv ss-unavail-inline">쿠폰·포인트 혜택 정보 미제공</span>
+        </div>`;
+      } else {
+        const benefitVal = naverPrice - payTotal;
+        rows += `<div class="pf-row" style="margin-top:4px;padding-top:6px;border-top:.5px solid var(--bd)">
+          <span class="pk" style="font-weight:600;color:var(--tx)">최대혜택가</span>
+          <span class="pv benefit">${fp(benefitVal)}</span>
+        </div>`;
+      }
+    }
+
+  } else {
+    // ── 기타 플랫폼 or 머스트잇 price_info 없음: 네이버쇼핑가만 표시 ──
+    if(isSmartstore){
+      rows += `<div class="pf-row">
+        <span class="pk">최대혜택가</span>
+        <span class="pv ss-unavail-inline">쿠폰·포인트 혜택 정보 미제공</span>
+      </div>`;
+    } else {
+      rows += `<div class="pf-row">
+        <span class="pk">최대혜택가</span>
+        <span class="pv benefit">${fp(naverPrice)}</span>
+      </div>`;
+    }
+  }
+
+  return `<div class="price-flow">${rows}</div>`;
+}
+
+/* ── 옵션별 재고 렌더링 (전 플랫폼 공통) ── */
+function renderOptions(cell){
+  const opts = cell._mustit_options || cell._det_options;
+  if(!opts || !opts.length) return '';
+  const optRows = opts.map(o=>{
+    const sold = o.stock === 0;
+    return `<div class="opt-row${sold?' sold':''}">
+      <span class="opt-lbl">${o.label}</span>
+      <span class="opt-stock ${sold?'opt-sold':'opt-avail'}">${sold?'품절':o.stock+'개'}</span>
+    </div>`;
+  }).join('');
+  return `<hr class="det-sep"/>
+  <div class="opt-sec">
+    <div class="opt-sec-title">옵션별 재고</div>
+    <div class="opt-grid">${optRows}</div>
+  </div>`;
+}
+
+/* ── 세부 패널 ── */
+function showDet(ri,ci,el){
+  try{
+    document.querySelectorAll('.mc').forEach(c=>c.classList.remove('active'));
+    if(el && el.classList) el.classList.add('active');
+    // ⚠ lastData.matching_rows가 아닌 lastMatchRows(필터 후)를 참조해야 ri 인덱스가 일치
+    const cell=lastMatchRows[ri]?.cells?.[PLATS[ci]];
+    if(!cell){ console.warn('[showDet] 셀 데이터 없음', ri, ci); return; }
+    const de=document.getElementById('de'), det=document.getElementById('dc');
+    if(!de || !det) return;
+  const isMustit=PLATS[ci]==='머스트잇';
+
+  // 머스트잇 바로가기: 네이버쇼핑 product 페이지 경유 시 CPC 할인 자동 적용.
+  // 우선순위: naver_nmid(link URL의 nvMid= 추출) → naver_product_id(API productId)
+  //          → 둘 다 없으면 raw 링크(할인 미적용).
+  // search.shopping.naver.com/product/<id> 페이지에서 "구매하기" 클릭 시
+  // cr.shopping.naver.com/adcr CPC URL 경유 → 머스트잇 NAVER 할인 적용됨.
+  const _rawLink = cell.link || '';
+  const _mustitPdNo = cell._mustit_product_no
+    || (_rawLink.match(/\/product_detail\/(\d+)/)||[])[1]
+    || null;
+  // 네이버쇼핑 검색 URL: 상품명으로 검색 → 결과에서 머스트잇 항목 클릭 시 CPC 할인 자동 적용.
+  // productId(카탈로그 ID)를 /product/ URL에 넣으면 Naver가 비정상 접근으로 차단하므로 사용 불가.
+  const _naverSearchUrl = isMustit && cell.name
+    ? `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(cell.name)}&frm=NVSHOP`
+    : '';
+
+  // ── 정보 행 (판매자/브랜드/상품상태/배송비) — 전 플랫폼 공통 ──
+  // 머스트잇은 _mustit_* 우선, 다른 플랫폼은 _det_* 사용
+  const _rawCond = cell._mustit_condition || cell._det_condition || null;
+  const _cond = _rawCond
+    ? _rawCond + (cell._mustit_used_grade ? ` (${cell._mustit_used_grade}급)` : '')
+    : null;
+  const _shipVal = cell._mustit_shipping_fee ?? cell._det_shipping_fee ?? null;
+  const _ship = _shipVal != null
+    ? (_shipVal === 0
+        ? '<span class="iv-free">무료</span>'
+        : Number(_shipVal).toLocaleString('ko-KR') + '원')
+    : null;
+
+  const _infoRows = [
+    ['판매자',   cell.seller || '—'],
+    ['브랜드',   cell.brand  || '—'],
+    ...(_cond ? [['상품 상태', _cond]] : []),
+    ...(_ship !== null ? [['배송비', _ship]] : []),
+  ].map(([k,v])=>`<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('');
+
+  const ARROW = `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h8M6 2l4 4-4 4"/></svg>`;
+
+  de.style.display='none';
+  det.style.display='block';
+  det.innerHTML=`
+    <div class="di"><img src="${cell.image||''}" onerror="this.style.background='var(--bg3)'"/></div>
+    <div class="db">
+      <div class="dbdg">${PLATS[ci]}</div>
+      <div class="dpn">${cell.name}</div>
+      <div class="dsl">${cell.seller}</div>
+
+      <!-- 네이버쇼핑가 메인 -->
+      <div class="price-main">
+        <div class="pm-lbl">네이버쇼핑가</div>
+        <div class="pm-val">${cell.price.toLocaleString('ko-KR')}<span>원</span></div>
+      </div>
+
+      <hr class="det-sep"/>
+
+      <!-- 가격 흐름 -->
+      ${renderPriceFlow(cell, isMustit)}
+
+      <hr class="det-sep"/>
+
+      <!-- 정보 행 -->
+      <div class="info-rows">${_infoRows}</div>
+
+      <!-- 옵션별 재고 -->
+      ${renderOptions(cell)}
+
+      <!-- 버튼 -->
+      <div class="lbtns">
+        ${_rawLink ? `<button class="lbtn" onclick="window.open('${_rawLink}','_blank')">${ARROW} ${PLATS[ci]} 바로가기</button>` : ''}
+        ${isMustit && _naverSearchUrl ? `<button class="lbtn lbtn-naver" onclick="window.open('${_naverSearchUrl}','_blank')">${ARROW} 네이버쇼핑 검색결과 바로가기</button>` : ''}
+      </div>
+    </div>
+  `;
+    // 패널이 뷰포트 밖에 있을 수 있으므로 보이는 위치로 스크롤
+    try{ det.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'}); }catch(_){}
+  }catch(err){ console.error('[showDet] 오류', err); }
+}
+
+function clearDetail(){
+  document.querySelectorAll('.mc').forEach(c=>c.classList.remove('active'));
+  document.getElementById('de').style.display='flex';
+  document.getElementById('dc').style.display='none';
+  // 새 검색 시 스켈레톤/매칭 섹션 초기화
+  document.getElementById('match-skeleton').style.display='none';
+  document.getElementById('match-content').style.display='block';
+  document.getElementById('sec-match').style.display='none';
+}
+
+/* ── 설정 로드 ── */
+async function loadSettings(){
+  try{
+    const [keys,cfg]=await Promise.all([api('/api/keys'),api('/api/config')]);
+    document.getElementById('aid').value=keys.client_id||'';
+    document.getElementById('asec2').value=keys.has_secret?'●●●●●●●●●':'';
+    renderCfg(cfg);
+  } catch(e){ toast(e.message); }
+}
+
+/* ── API 키 테스트 ── */
+async function testKey(){
+  const btn=document.getElementById('testbtn');
+  btn.disabled=true; btn.textContent='테스트 중...';
+  const el=document.getElementById('tres');
+  el.className=''; el.textContent='';
+  try{
+    // 먼저 현재 입력값 저장
+    await saveKeys(true);
+    const d=await api('/api/keys/test');
+    el.className=`tres ${d.ok?'ok':'ng'}`;
+    el.textContent=d.message;
+    if(d.ok) refreshKey();
+  } catch(e){
+    el.className='tres ng';
+    el.textContent=e.message;
+  } finally{
+    btn.disabled=false; btn.textContent='연결 테스트';
+  }
+}
+
+/* ── API 키만 저장 (silent 옵션) ── */
+async function saveKeys(silent=false){
+  const cid=document.getElementById('aid').value.trim();
+  const sec=document.getElementById('asec2').value.trim();
+  const payload={};
+  if(cid) payload.client_id=cid;
+  if(sec && !sec.startsWith('●')) payload.client_secret=sec;
+  if(!Object.keys(payload).length) return;
+  await api('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!silent) toast('API 키가 저장됐습니다.','suc');
+}
+
+/* ── 판매자 Config ── */
+function renderCfg(cfg){
+  const tb=document.getElementById('cfgbody');
+  tb.innerHTML='';
+  let entries=Object.entries(cfg);
+  if(!entries.length){addRow();return;}
+  // 머스트잇 판매자 ID 기준 알파벳 오름차순 정렬
+  entries.sort((a,b)=>{
+    const ma=(a[1]['머스트잇']||'').trim().toLowerCase();
+    const mb=(b[1]['머스트잇']||'').trim().toLowerCase();
+    if(ma==='' && mb==='') return 0;
+    if(ma==='') return 1;
+    if(mb==='') return -1;
+    return ma < mb ? -1 : ma > mb ? 1 : 0;
+  });
+  // 순번을 1,2,3... 으로 재부여
+  entries.forEach(([,map],i)=>appendRow(String(i+1),map));
+}
+
+function appendRow(lbl='',map={}){
+  const tb=document.getElementById('cfgbody');
+  const tr=document.createElement('tr');
+  const cells=PLATS.map(p=>`<td class="ctd"><input class="ci" data-plat="${p}" value="${map[p]||''}" placeholder="${p} 판매자 ID"/></td>`).join('');
+  tr.innerHTML=`
+    <td class="ctl"><input class="ci" style="text-align:center;font-weight:600" data-role="lbl" value="${lbl}" placeholder="1"/></td>
+    ${cells}
+    <td class="ctd" style="width:34px"><button class="delbtn" onclick="this.closest('tr').remove()">✕</button></td>
+  `;
+  tb.appendChild(tr);
+}
+
+function addRow(){
+  const tb=document.getElementById('cfgbody');
+  appendRow(String(tb.children.length + 1));
+}
+
+/* ── 전체 저장 ── */
+async function saveAll(){
+  const savebtn=document.querySelector('#pg-settings .btn.pri');
+  savebtn.disabled=true; savebtn.textContent='저장 중...';
+  try{
+    await saveKeys(true);
+    const cfg={};
+    document.querySelectorAll('#cfgbody tr').forEach(tr=>{
+      const lbl=tr.querySelector('[data-role="lbl"]')?.value.trim();
+      if(!lbl) return;
+      cfg[lbl]={};
+      PLATS.forEach(p=>{cfg[lbl][p]=tr.querySelector(`[data-plat="${p}"]`)?.value.trim()||'';});
+    });
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+    toast('저장됐습니다.','suc');
+    if(IS_SETTINGS_WIN){
+      // 별도 창: 부모 창에 갱신 신호 보내고 닫기
+      try{ window.opener && window.opener.postMessage({type:'mustit_settings_saved'}, '*'); }catch(e){}
+      setTimeout(()=>window.close(), 400);
+      return;
+    }
+    await refreshKey();
+    goPage('pg-main');
+    if(document.getElementById('qinput').value.trim()) doSearch();
+  } catch(e){
+    toast(e.message);
+  } finally{
+    savebtn.disabled=false; savebtn.textContent='저장';
+  }
+}
+
+/* ── 설정 창 진입 시: 설정 페이지 자동 표시, 메인/돌아가기 숨김 ── */
+if(IS_SETTINGS_WIN){
+  document.getElementById('pg-main').style.display='none';
+  goPage('pg-settings');
+  // 돌아가기 버튼 숨김 — 별도 창이라 갈 곳 없음
+  const backBtn=document.querySelector('#pg-settings .bar > .btn:not(.pri)');
+  if(backBtn) backBtn.style.display='none';
+}else{
+  // 메인 창: 설정 창에서 저장 완료 시 자동 새로고침
+  window.addEventListener('message', (e)=>{
+    if(e.data && e.data.type==='mustit_settings_saved'){
+      refreshKey();
+      // 설정 저장 후 config 재로드 → 가격 경쟁 현황 색상 갱신
+      api('/api/config').then(c=>{ lastCfg=c; if(lastData) renderRank(lastData.by_platform||{}); }).catch(()=>{});
+      const q=document.getElementById('qinput').value.trim();
+      if(q) doSearch();
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   Excel 다운로드
+   시트 1: 가격경쟁현황
+   시트 2: 판매자순매칭(네이버쇼핑가)
+   시트 3: 판매자순매칭(최대혜택가)
+══════════════════════════════════════════════════ */
+function downloadExcel(){
+  if(!lastData){ toast('먼저 검색을 실행하세요.'); return; }
+  if(typeof XLSX === 'undefined'){ toast('Excel 라이브러리 로드 중입니다. 잠시 후 다시 시도하세요.'); return; }
+
+  const WB   = XLSX.utils.book_new();
+  const qname = lastData.query || 'result';
+
+  /* ── 숫자 셀에 회계 쉼표 서식 적용 ──
+     colIdxs: 적용할 열 인덱스 배열, startRow: 데이터 시작 행(헤더 제외) */
+  function applyNumFmt(ws, colIdxs, startRow){
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for(let r = startRow; r <= range.e.r; r++){
+      for(const c of colIdxs){
+        const addr = XLSX.utils.encode_cell({r, c});
+        if(ws[addr] && ws[addr].t === 'n'){
+          ws[addr].z = '#,##0';
+        }
+      }
+    }
+  }
+
+  /* ══ 시트 1: 가격경쟁현황 ══ */
+  (()=>{
+    const byPlat = lastData.by_platform || {};
+    const cols   = PLATS_RANK.map(p => byPlat[p] || []);
+    const maxN   = cols.reduce((a,c)=>Math.max(a,c.length), 0);
+
+    /* 헤더 2행 */
+    const h1 = ['순위'];
+    const h2 = [''];
+    const merges = [{s:{r:0,c:0}, e:{r:1,c:0}}]; // 순위 셀 병합
+
+    PLATS_RANK.forEach((plat, pi)=>{
+      const c = 1 + pi * 3;
+      h1.push(plat, '', '');
+      h2.push('노출순위', '가격', pi===PLATS_RANK.length-1 ? '사이트' : '판매자');
+      merges.push({s:{r:0,c}, e:{r:0,c:c+2}}); // 플랫폼명 3열 병합
+    });
+
+    const aoa = [h1, h2];
+    for(let i=0; i<maxN; i++){
+      const row = [i+1];
+      cols.forEach((col, ci)=>{
+        const it = col[i] || null;
+        if(!it){ row.push('','',''); return; }
+        const seller = it.seller || it.mallName || '';
+        row.push(
+          it.naver_rank != null ? it.naver_rank : '',
+          it.price,
+          seller
+        );
+      });
+      aoa.push(row);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols']   = [
+      {wch:5},
+      ...PLATS_RANK.flatMap(()=>[{wch:8},{wch:12},{wch:16}])
+    ];
+    // 가격 열(2, 5, 8, 11, 14, 17)에 회계 쉼표 적용 — 헤더 2행 제외
+    applyNumFmt(ws, PLATS_RANK.map((_,i) => 1 + i*3 + 1), 2);
+    XLSX.utils.book_append_sheet(WB, ws, '가격경쟁현황');
+  })();
+
+  /* ══ 시트 2 & 3: 판매자순매칭 ══ */
+  function makeMatchSheet(useBenefit){
+    const header = ['판매자', ...PLATS];
+    const aoa    = [header];
+
+    lastMatchRows.forEach(row=>{
+      const r = [row.label];
+      PLATS.forEach(p=>{
+        const cell = row.cells?.[p];
+        if(!cell){ r.push(''); return; }
+        if(useBenefit){
+          const bp = calcMaxBenefit(cell);
+          r.push(bp != null ? bp : '정보없음');
+        } else {
+          r.push(cell.price);
+        }
+      });
+      aoa.push(r);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:14}, ...PLATS.map(()=>({wch:14}))];
+    // 가격 열(1~5)에 회계 쉼표 적용 — 헤더 1행 제외
+    applyNumFmt(ws, PLATS.map((_,i) => i+1), 1);
+    return ws;
+  }
+
+  XLSX.utils.book_append_sheet(WB, makeMatchSheet(false), '판매자순매칭(네이버쇼핑가)');
+  XLSX.utils.book_append_sheet(WB, makeMatchSheet(true),  '판매자순매칭(최대혜택가)');
+
+  /* 파일명: 가격비교_품번_YYYYMMDD.xlsx */
+  const d = new Date();
+  const ds = d.getFullYear()
+    + String(d.getMonth()+1).padStart(2,'0')
+    + String(d.getDate()).padStart(2,'0');
+  XLSX.writeFile(WB, `가격비교_${qname}_${ds}.xlsx`);
+  toast('Excel 다운로드 완료', 'suc');
+}
+
+/* ══════════════════════════════════════════════════
+   대량 조회
+══════════════════════════════════════════════════ */
+let _bmResults = [];
+let _bmMode    = 'fast';
+let _bmAbort   = false;
+
+function updBmCnt(){
+  const n = _bmQueries().length;
+  document.getElementById('bm-cnt').textContent = n ? `${n}건` : '';
+}
+function openBulk(){
+  document.getElementById('bm-ov').style.display = 'flex';
+  updBmCnt();
+}
+function closeBulk(){
+  const running = document.getElementById('bm-running').style.display !== 'none';
+  if(running && !_bmAbort){
+    if(!confirm('조회를 중단하고 닫으시겠습니까?')) return;
+    _bmAbort = true;
+  }
+  document.getElementById('bm-ov').style.display = 'none';
+}
+function abortBulk(){
+  _bmAbort = true;
+  const btn = document.getElementById('bm-abort-btn');
+  btn.textContent = '중단 중...'; btn.disabled = true;
+}
+function updBmMode(){
+  _bmMode = document.querySelector('input[name="bmmode"]:checked').value;
+  document.getElementById('bm-card-fast').classList.toggle('sel', _bmMode==='fast');
+  document.getElementById('bm-card-full').classList.toggle('sel', _bmMode==='full');
+}
+function _bmQueries(){
+  return (document.getElementById('bm-ta').value||'')
+    .split('\n').map(s=>s.trim()).filter(Boolean);
+}
+function _setBmState(s){
+  ['idle','running','done'].forEach(k=>
+    document.getElementById(`bm-${k}`).style.display = s===k ? 'block' : 'none'
+  );
+}
+function resetBulk(){
+  if(_bmTimer){ clearInterval(_bmTimer); _bmTimer = null; }
+  _setBmState('idle');
+  document.getElementById('bm-ttl').textContent = '대량 조회';
+  document.getElementById('bm-ta').value = '';
+  document.getElementById('bm-cnt').textContent = '';
+  _bmResults = [];
+}
+
+let _bmTimer = null;
+let _bmStartTime = null;
+
+function _fmtElapsed(ms){
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}분 ${s % 60}초` : `${s}초`;
+}
+
+async function startBulk(){
+  const queries = _bmQueries();
+  if(!queries.length){ toast('품번을 입력하세요.'); return; }
+  _bmResults = []; _bmAbort = false;
+  const total = queries.length;
+
+  // 항목 목록 초기 렌더
+  document.getElementById('bm-run-list').innerHTML = queries.map((q,i)=>`
+    <div class="bm-item" id="bmi-${i}">
+      <div class="bm-ic wait" id="bmic-${i}"></div>
+      <div class="bm-iq">${q}</div>
+      <div class="bm-is" id="bmis-${i}">대기</div>
+    </div>`).join('');
+  document.getElementById('bm-total-n').textContent = total;
+  _setBmState('running');
+
+  // 경과 시간 타이머 시작
+  _bmStartTime = Date.now();
+  document.getElementById('bm-elapsed').textContent = '경과 0초';
+  if(_bmTimer) clearInterval(_bmTimer);
+  _bmTimer = setInterval(()=>{
+    const el = document.getElementById('bm-elapsed');
+    if(el) el.textContent = '경과 ' + _fmtElapsed(Date.now() - _bmStartTime);
+  }, 1000);
+
+  for(let i=0; i<total; i++){
+    if(_bmAbort) break;
+    const q = queries[i];
+    const ic = document.getElementById(`bmic-${i}`);
+    const st = document.getElementById(`bmis-${i}`);
+    ic.className = 'bm-ic run'; st.textContent = '조회 중...';
+    ic.closest('.bm-item').scrollIntoView({block:'nearest',behavior:'smooth'});
+
+    const res = {query:q, ok:false, data:null, enrich:null, error:null};
+    try{
+      res.data = await api(`/api/search?query=${encodeURIComponent(q)}`);
+      if(_bmMode==='full' && !_bmAbort){
+        st.textContent = '판매자 매칭 중...';
+        res.enrich = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
+      }
+      res.ok = true;
+      ic.className='bm-ic ok'; ic.textContent='✓'; st.textContent='완료';
+    } catch(e){
+      res.error = e.message;
+      ic.className='bm-ic ng'; ic.textContent='✕'; st.textContent='실패';
+    }
+    _bmResults.push(res);
+
+    const done = i+1, pct = Math.round(done/total*100);
+    document.getElementById('bm-prog').style.width = pct+'%';
+    document.getElementById('bm-done-n').textContent = done;
+    document.getElementById('bm-pct').textContent = pct+'%';
+  }
+
+  // 타이머 정지 + 최종 시간 기록
+  if(_bmTimer){ clearInterval(_bmTimer); _bmTimer = null; }
+  const totalMs = Date.now() - _bmStartTime;
+  const finalTime = _fmtElapsed(totalMs);
+  const elDone = document.getElementById('bm-elapsed-done');
+  if(elDone) elDone.textContent = '총 ' + finalTime + ' 소요';
+
+  // 완료 처리
+  const ok   = _bmResults.filter(r=>r.ok).length;
+  const fail = _bmResults.filter(r=>!r.ok).length;
+  const aborted = _bmAbort && _bmResults.length < total;
+  const skipped = total - _bmResults.length;
+
+  document.getElementById('bm-ttl').textContent = aborted ? '대량 조회 중단됨' : '대량 조회 완료';
+  document.getElementById('bm-sum').innerHTML = [
+    `✓ 성공 <strong>${ok}건</strong>`,
+    fail   ? `✕ 실패 <strong>${fail}건</strong>` : '',
+    aborted? `⚠ 미처리 <strong>${skipped}건</strong> (중단)` : '',
+  ].filter(Boolean).join('<br>');
+
+  // 완료 리스트 = 진행 리스트 복사
+  document.getElementById('bm-done-list').innerHTML =
+    document.getElementById('bm-run-list').innerHTML;
+
+  document.getElementById('bm-xl-btn').style.display = ok>0 ? 'flex' : 'none';
+  _setBmState('done');
+}
+
+/* ── 대량 Excel ── */
+function downloadBulkExcel(){
+  if(!_bmResults.length) return;
+  if(typeof XLSX==='undefined'){ toast('Excel 라이브러리 로드 중...'); return; }
+  const WB = XLSX.utils.book_new();
+  const hasEnrich = _bmResults.some(r=>r.enrich);
+
+  function applyFmt(ws, cols, startRow){
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    for(let r=startRow; r<=rng.e.r; r++)
+      for(const c of cols){
+        const a = XLSX.utils.encode_cell({r,c});
+        if(ws[a]&&ws[a].t==='n') ws[a].z='#,##0';
+      }
+  }
+
+  /* 시트1: 가격경쟁현황 — 품번별 상위 10순위 (건별 검색 UI와 동일) */
+  {
+    // 2행 헤더 (단일 품번 Excel과 동일 구조 + 품번/상품명/네이버최저가 앞에 추가)
+    const h1 = ['품번','상품명','네이버최저가','순위'];
+    const h2 = ['','','',''];
+    const merges = [
+      {s:{r:0,c:0},e:{r:1,c:0}},  // 품번
+      {s:{r:0,c:1},e:{r:1,c:1}},  // 상품명
+      {s:{r:0,c:2},e:{r:1,c:2}},  // 네이버최저가
+      {s:{r:0,c:3},e:{r:1,c:3}},  // 순위
+    ];
+    PLATS_RANK.forEach((plat, pi)=>{
+      const c = 4 + pi*3;
+      h1.push(plat,'','');
+      h2.push('노출순위','가격', pi===PLATS_RANK.length-1?'사이트':'판매자');
+      merges.push({s:{r:0,c},e:{r:0,c:c+2}});
+    });
+
+    const aoa = [h1, h2];
+    _bmResults.filter(r=>r.ok).forEach(r=>{
+      const top    = r.data?.top10?.[0];
+      // enrich(Phase-2) 결과에 seller가 채워져 있으므로 우선 사용, 없으면 Phase-1 data 사용
+      const byPlat = (r.enrich?.by_platform) || r.data?.by_platform || {};
+      const cols   = PLATS_RANK.map(p => byPlat[p]||[]);
+      const maxN   = Math.min(RANK_DEFAULT, cols.reduce((a,c)=>Math.max(a,c.length), 0));
+      for(let i=0; i<maxN; i++){
+        const row = [r.query, top?.name||'', top?.price||'', i+1];
+        cols.forEach((col,ci)=>{
+          const it = col[i]||null;
+          if(!it){row.push('','','');return;}
+          const seller = it.seller || it.mallName || '';
+          row.push(it.naver_rank!=null?it.naver_rank:'', it.price, seller);
+        });
+        aoa.push(row);
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      {wch:16},{wch:28},{wch:12},{wch:5},
+      ...PLATS_RANK.flatMap(()=>[{wch:8},{wch:12},{wch:16}])
+    ];
+    // 네이버최저가(col 2) + 각 플랫폼 가격 열(col 5,8,11,14,17,20)
+    applyFmt(ws, [2,...PLATS_RANK.map((_,i)=>4+i*3+1)], 2);
+    XLSX.utils.book_append_sheet(WB, ws, '가격경쟁현황');
+  }
+
+  /* 시트2·3: 판매자 매칭 (전체 조회 시만) */
+  if(hasEnrich){
+    const mkSheet = (useBenefit)=>{
+      const h = ['품번','상품명','판매자',...PLATS];
+      const aoa = [h];
+      _bmResults.filter(r=>r.ok&&r.enrich).forEach(r=>{
+        const top = r.data?.top10?.[0];
+        const rows = (r.enrich?.matching_rows||[]).filter(mr=>PLATS.some(p=>mr.cells?.[p]));
+        rows.forEach(mr=>{
+          const dr = [r.query, top?.name||'', mr.label];
+          PLATS.forEach(p=>{
+            const c = mr.cells?.[p];
+            if(!c){dr.push('');return;}
+            if(useBenefit){ const bp=calcMaxBenefit(c); dr.push(bp!=null?bp:'정보없음'); }
+            else dr.push(c.price);
+          });
+          aoa.push(dr);
+        });
+      });
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{wch:16},{wch:28},{wch:12},...PLATS.map(()=>({wch:14}))];
+      applyFmt(ws, PLATS.map((_,i)=>3+i), 1);
+      return ws;
+    };
+    XLSX.utils.book_append_sheet(WB, mkSheet(false), '판매자순매칭(네이버쇼핑가)');
+    XLSX.utils.book_append_sheet(WB, mkSheet(true),  '판매자순매칭(최대혜택가)');
+  }
+
+  const d = new Date();
+  const ds = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  XLSX.writeFile(WB, `대량조회_${ds}.xlsx`);
+  toast('Excel 다운로드 완료', 'suc');
+}
+
+refreshKey();
+// 초기 config 로드 → renderRank 색상 적용
+api('/api/config').then(c=>{ lastCfg=c; }).catch(()=>{});
+</script>
+</body>
+</html>
