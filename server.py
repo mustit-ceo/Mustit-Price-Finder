@@ -835,7 +835,9 @@ def _fetch_mustit_detail(link):
             print(f"[DEBUG mustit fetch] pd_id={pd_id} target={target[:60]} status={r.status_code}")
             if r.status_code == 200:
                 html = r.text or ""
-                print(f"[DEBUG mustit fetch] OK html_len={len(html)} has_sellerId={'sellerId' in html}")
+                print(f"[DEBUG mustit fetch] OK html_len={len(html)} has_sellerId={'sellerId' in html} preview={repr(html[:200])}")
+                if len(html) < 500:
+                    continue  # 봇 감지 응답 → 다음 URL 시도
                 break
         except Exception as e:
             print(f"[DEBUG mustit fetch] EXCEPTION target={target[:60]} err={e}")
