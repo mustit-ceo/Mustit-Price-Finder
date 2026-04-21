@@ -295,8 +295,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         대량 조회
       </button>
     </div>
-    <div id="kbdg" class="kbadge ng" onclick="openSettings()" style="margin-left:auto" title="클릭하여 API 설정">API 키 미설정</div>
-    <button class="btn" onclick="openSettings()">
+    <button class="btn" onclick="openSettings()" style="margin-left:auto">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
       설정
     </button>
@@ -431,20 +430,19 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
   </div>
   <div class="ss">
 
-    <div class="asec">
-      <div class="asec-h">
-        네이버 쇼핑 API 키
-        <button class="btn" style="height:28px;font-size:11px" id="testbtn" onclick="testKey()">연결 테스트</button>
-      </div>
-      <div class="asec-b">
-        <div class="hint">네이버 개발자센터(developers.naver.com) → 애플리케이션 등록 → [검색] API 선택 후 발급</div>
-        <div class="fld"><div class="flbl">Client ID</div><input class="si" id="aid" placeholder="Client ID"/></div>
-        <div class="fld"><div class="flbl">Client Secret</div><input class="si" id="asec2" type="password" placeholder="Client Secret"/></div>
-        <div id="tres"></div>
-      </div>
+    <div class="hint" style="margin-top:4px">판매자별 각 몰의 판매자 ID를 입력하세요. 엑셀로 일괄 업로드하거나 직접 입력하세요.</div>
+    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn" onclick="document.getElementById('xlsxUpload').click()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M4 7l4 4 4-4"/><rect x="1" y="11" width="14" height="4" rx="1"/></svg>
+        엑셀 업로드
+      </button>
+      <input type="file" id="xlsxUpload" accept=".xlsx,.xls" style="display:none" onchange="handleXlsxUpload(event)"/>
+      <button class="btn" onclick="downloadTemplate()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V2M4 8l4 4 4-4"/><rect x="1" y="12" width="14" height="3" rx="1"/></svg>
+        양식 다운로드
+      </button>
+      <span style="font-size:11px;color:var(--tx3)">열 순서: 판매자 | 머스트잇 | 트렌비 | SSG | 롯데온 | 스마트스토어</span>
     </div>
-
-    <div class="hint" style="margin-top:4px">판매자별 각 몰의 판매자 ID를 입력하세요.</div>
     <div class="cw">
       <table class="ct">
         <thead><tr>
@@ -604,18 +602,6 @@ function toast(msg, type='err'){
   el._t=setTimeout(()=>el.classList.remove('show'), 5000);
 }
 
-/* ── API 키 상태 ── */
-async function refreshKey(){
-  try{
-    const d=await api('/api/keys');
-    const el=document.getElementById('kbdg');
-    if(d.client_id && d.has_secret){
-      el.className='kbadge ok'; el.textContent='API 연결됨';
-    } else {
-      el.className='kbadge ng'; el.textContent='API 키 미설정';
-    }
-  } catch(e){ /* 무시 */ }
-}
 
 /* ── 검색 ── */
 /* ── 현재 검색 쿼리 (Phase-2 취소 판단용) ── */
@@ -1134,44 +1120,9 @@ function clearDetail(){
 /* ── 설정 로드 ── */
 async function loadSettings(){
   try{
-    const [keys,cfg]=await Promise.all([api('/api/keys'),api('/api/config')]);
-    document.getElementById('aid').value=keys.client_id||'';
-    document.getElementById('asec2').value=keys.has_secret?'●●●●●●●●●':'';
+    const cfg=await api('/api/config');
     renderCfg(cfg);
   } catch(e){ toast(e.message); }
-}
-
-/* ── API 키 테스트 ── */
-async function testKey(){
-  const btn=document.getElementById('testbtn');
-  btn.disabled=true; btn.textContent='테스트 중...';
-  const el=document.getElementById('tres');
-  el.className=''; el.textContent='';
-  try{
-    // 먼저 현재 입력값 저장
-    await saveKeys(true);
-    const d=await api('/api/keys/test');
-    el.className=`tres ${d.ok?'ok':'ng'}`;
-    el.textContent=d.message;
-    if(d.ok) refreshKey();
-  } catch(e){
-    el.className='tres ng';
-    el.textContent=e.message;
-  } finally{
-    btn.disabled=false; btn.textContent='연결 테스트';
-  }
-}
-
-/* ── API 키만 저장 (silent 옵션) ── */
-async function saveKeys(silent=false){
-  const cid=document.getElementById('aid').value.trim();
-  const sec=document.getElementById('asec2').value.trim();
-  const payload={};
-  if(cid) payload.client_id=cid;
-  if(sec && !sec.startsWith('●')) payload.client_secret=sec;
-  if(!Object.keys(payload).length) return;
-  await api('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  if(!silent) toast('API 키가 저장됐습니다.','suc');
 }
 
 /* ── 판매자 Config ── */
@@ -1215,7 +1166,6 @@ async function saveAll(){
   const savebtn=document.querySelector('#pg-settings .btn.pri');
   savebtn.disabled=true; savebtn.textContent='저장 중...';
   try{
-    await saveKeys(true);
     const cfg={};
     document.querySelectorAll('#cfgbody tr').forEach(tr=>{
       const lbl=tr.querySelector('[data-role="lbl"]')?.value.trim();
@@ -1226,12 +1176,10 @@ async function saveAll(){
     await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
     toast('저장됐습니다.','suc');
     if(IS_SETTINGS_WIN){
-      // 별도 창: 부모 창에 갱신 신호 보내고 닫기
       try{ window.opener && window.opener.postMessage({type:'mustit_settings_saved'}, '*'); }catch(e){}
       setTimeout(()=>window.close(), 400);
       return;
     }
-    await refreshKey();
     goPage('pg-main');
     if(document.getElementById('qinput').value.trim()) doSearch();
   } catch(e){
@@ -1252,13 +1200,76 @@ if(IS_SETTINGS_WIN){
   // 메인 창: 설정 창에서 저장 완료 시 자동 새로고침
   window.addEventListener('message', (e)=>{
     if(e.data && e.data.type==='mustit_settings_saved'){
-      refreshKey();
       // 설정 저장 후 config 재로드 → 가격 경쟁 현황 색상 갱신
       api('/api/config').then(c=>{ lastCfg=c; if(lastData) renderRank(lastData.by_platform||{}); }).catch(()=>{});
       const q=document.getElementById('qinput').value.trim();
       if(q) doSearch();
     }
   });
+}
+
+/* ══════════════════════════════════════════════════
+   판매자 엑셀 업로드 / 양식 다운로드
+   ══════════════════════════════════════════════════ */
+
+/* 양식 엑셀 다운로드 */
+function downloadTemplate(){
+  const headers = ['판매자', '머스트잇', '트렌비', 'SSG', '롯데온', '스마트스토어'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ['예시', 'seller1', 'seller2', '', '', '']]);
+  // 열 너비 설정
+  ws['!cols'] = headers.map(()=>({wch:18}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '판매자설정');
+  XLSX.writeFile(wb, '판매자_설정_양식.xlsx');
+}
+
+/* 엑셀 업로드 처리 */
+function handleXlsxUpload(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if(!rows || rows.length < 2){
+        toast('데이터가 없습니다. 양식을 확인해주세요.');
+        return;
+      }
+      // 헤더 행 파싱 (대소문자/공백 무시)
+      const header = rows[0].map(h=>String(h).trim());
+      const colIdx = {};
+      const colMap = {'판매자':'판매자','머스트잇':'머스트잇','트렌비':'트렌비','ssg':'SSG','SSG':'SSG','롯데온':'롯데온','스마트스토어':'스마트스토어'};
+      header.forEach((h,i)=>{
+        const key = colMap[h] || colMap[h.toLowerCase()];
+        if(key) colIdx[key] = i;
+      });
+      if(colIdx['판매자'] === undefined){
+        toast('헤더에 "판매자" 열이 없습니다. 양식을 확인해주세요.');
+        return;
+      }
+      // 기존 행 초기화
+      const tb = document.getElementById('cfgbody');
+      tb.innerHTML = '';
+      let added = 0;
+      rows.slice(1).forEach(row=>{
+        const lbl = String(row[colIdx['판매자']]||'').trim();
+        if(!lbl) return;
+        const map = {};
+        PLATS.forEach(p=>{ map[p] = String(row[colIdx[p]]||'').trim(); });
+        appendRow(lbl, map);
+        added++;
+      });
+      toast(`${added}개 판매자를 불러왔습니다. 저장 버튼을 눌러 반영하세요.`, 'suc');
+    } catch(err){
+      toast('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+    } finally{
+      event.target.value = ''; // 같은 파일 재업로드 허용
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 /* ══════════════════════════════════════════════════
