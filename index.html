@@ -1242,18 +1242,39 @@ function handleXlsxUpload(event){
       const colMap = {'머스트잇':'머스트잇','트렌비':'트렌비','ssg':'SSG','SSG':'SSG','롯데온':'롯데온','스마트스토어':'스마트스토어'};
       const colIdx = {};
       header.forEach((h,i)=>{ const key=colMap[h]||colMap[h.toLowerCase()]; if(key) colIdx[key]=i; });
-      // 기존 행 초기화 후 순번 자동 부여
       const tb = document.getElementById('cfgbody');
-      tb.innerHTML = '';
-      let added = 0;
+      // 기존 행을 머스트잇 ID 기준으로 맵핑
+      const existingRows = {};
+      tb.querySelectorAll('tr').forEach(tr=>{
+        const mu = tr.querySelector('[data-plat="머스트잇"]')?.value.trim();
+        if(mu) existingRows[mu] = tr;
+      });
+      let added=0, merged=0;
       rows.slice(1).forEach(row=>{
         const map = {};
         PLATS.forEach(p=>{ map[p] = String(row[colIdx[p]]||'').trim(); });
-        if(PLATS.every(p=>!map[p])) return; // 모든 열이 비어있으면 스킵
-        appendRow(String(added+1), map);
-        added++;
+        if(PLATS.every(p=>!map[p])) return;
+        const muId = map['머스트잇'];
+        if(muId && existingRows[muId]){
+          // 기존 행: 비어있는 칸만 덮어쓰기
+          const tr = existingRows[muId];
+          PLATS.forEach(p=>{
+            if(!map[p]) return; // 업로드 값이 비어있으면 스킵
+            const input = tr.querySelector(`[data-plat="${p}"]`);
+            if(input && !input.value.trim()) input.value = map[p];
+          });
+          merged++;
+        } else {
+          // 신규 행 추가
+          const lbl = String(tb.children.length + 1);
+          appendRow(lbl, map);
+          added++;
+        }
       });
-      toast(`${added}개 판매자를 불러왔습니다. 저장 버튼을 눌러 반영하세요.`, 'suc');
+      const msg = [];
+      if(added) msg.push(`${added}개 추가`);
+      if(merged) msg.push(`${merged}개 병합`);
+      toast(`${msg.join(', ')}됐습니다. 저장 버튼을 눌러 반영하세요.`, 'suc');
     } catch(err){
       toast('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
     } finally{
