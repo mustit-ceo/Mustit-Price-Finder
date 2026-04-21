@@ -819,9 +819,14 @@ def _fetch_mustit_detail(link):
     try:
         r = requests.get(target, timeout=6, allow_redirects=True,
                          headers={"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"})
-        if r.status_code != 200: return None
+        print(f"[DEBUG mustit fetch] pd_id={pd_id} status={r.status_code} url={r.url[:80]}")
+        if r.status_code != 200:
+            print(f"[DEBUG mustit fetch] FAIL status={r.status_code}")
+            return None
         html = r.text or ""
-    except Exception:
+        print(f"[DEBUG mustit fetch] html_len={len(html)} has_sellerId={'sellerId' in html}")
+    except Exception as e:
+        print(f"[DEBUG mustit fetch] EXCEPTION pd_id={pd_id} err={e}")
         return None
 
     detail = {"product_no": pd_id}
