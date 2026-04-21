@@ -441,7 +441,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V2M4 8l4 4 4-4"/><rect x="1" y="12" width="14" height="3" rx="1"/></svg>
         양식 다운로드
       </button>
-      <span style="font-size:11px;color:var(--tx3)">열 순서: 판매자 | 머스트잇 | 트렌비 | SSG | 롯데온 | 스마트스토어</span>
+      <span style="font-size:11px;color:var(--tx3)">열 순서: 머스트잇 | 트렌비 | SSG | 롯데온 | 스마트스토어</span>
     </div>
     <div class="cw">
       <table class="ct">
@@ -1214,9 +1214,8 @@ if(IS_SETTINGS_WIN){
 
 /* 양식 엑셀 다운로드 */
 function downloadTemplate(){
-  const headers = ['판매자', '머스트잇', '트렌비', 'SSG', '롯데온', '스마트스토어'];
-  const ws = XLSX.utils.aoa_to_sheet([headers, ['예시', 'seller1', 'seller2', '', '', '']]);
-  // 열 너비 설정
+  const headers = ['머스트잇', '트렌비', 'SSG', '롯데온', '스마트스토어'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ['seller1', 'seller2', '', '', '']]);
   ws['!cols'] = headers.map(()=>({wch:18}));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '판매자설정');
@@ -1238,35 +1237,27 @@ function handleXlsxUpload(event){
         toast('데이터가 없습니다. 양식을 확인해주세요.');
         return;
       }
-      // 헤더 행 파싱 (대소문자/공백 무시)
+      // 헤더 행 파싱
       const header = rows[0].map(h=>String(h).trim());
+      const colMap = {'머스트잇':'머스트잇','트렌비':'트렌비','ssg':'SSG','SSG':'SSG','롯데온':'롯데온','스마트스토어':'스마트스토어'};
       const colIdx = {};
-      const colMap = {'판매자':'판매자','머스트잇':'머스트잇','트렌비':'트렌비','ssg':'SSG','SSG':'SSG','롯데온':'롯데온','스마트스토어':'스마트스토어'};
-      header.forEach((h,i)=>{
-        const key = colMap[h] || colMap[h.toLowerCase()];
-        if(key) colIdx[key] = i;
-      });
-      if(colIdx['판매자'] === undefined){
-        toast('헤더에 "판매자" 열이 없습니다. 양식을 확인해주세요.');
-        return;
-      }
-      // 기존 행 초기화
+      header.forEach((h,i)=>{ const key=colMap[h]||colMap[h.toLowerCase()]; if(key) colIdx[key]=i; });
+      // 기존 행 초기화 후 순번 자동 부여
       const tb = document.getElementById('cfgbody');
       tb.innerHTML = '';
       let added = 0;
       rows.slice(1).forEach(row=>{
-        const lbl = String(row[colIdx['판매자']]||'').trim();
-        if(!lbl) return;
         const map = {};
         PLATS.forEach(p=>{ map[p] = String(row[colIdx[p]]||'').trim(); });
-        appendRow(lbl, map);
+        if(PLATS.every(p=>!map[p])) return; // 모든 열이 비어있으면 스킵
+        appendRow(String(added+1), map);
         added++;
       });
       toast(`${added}개 판매자를 불러왔습니다. 저장 버튼을 눌러 반영하세요.`, 'suc');
     } catch(err){
       toast('엑셀 파일을 읽는 중 오류가 발생했습니다: ' + err.message);
     } finally{
-      event.target.value = ''; // 같은 파일 재업로드 허용
+      event.target.value = '';
     }
   };
   reader.readAsArrayBuffer(file);
