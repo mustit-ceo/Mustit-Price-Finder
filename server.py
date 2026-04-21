@@ -801,8 +801,7 @@ def _fetch_trenbe_detail(link):
 
 def _fetch_mustit_detail(link):
     """머스트잇 product_detail 페이지에서 sellerId + 상세정보를 한 번에 추출.
-    네이버가 내려주는 링크는 mustit.co.kr/naver_session.php?URL=<encoded> 래퍼 형태라
-    URL 디코드 후 product_detail/{pdId} 추출 → 직접 GET.
+    네이버 naver_session 쿠키를 먼저 획득한 뒤 product_detail 페이지 접근.
     반환: dict(seller, condition, auth_status, shipping_fee, seller_grade,
                stock, actual_price, origin_price, product_no) | None
     """
@@ -815,33 +814,35 @@ def _fetch_mustit_detail(link):
     if link in _DETAIL_CACHE:
         return _DETAIL_CACHE[link]
 
-    # 시도할 URL 목록 (우선순위 순)
-    candidates = [
-        f"https://mustit.co.kr/product_detail/{pd_id}",
-        f"https://web.mustit.co.kr/product_detail/{pd_id}",
-        f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
-    ]
+    _headers = {
+        "User-Agent": _UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+    }
+
+    session = requests.Session()
     html = ""
-    for target in candidates:
-        try:
-            r = requests.get(target, timeout=8, allow_redirects=True,
-                             headers={
-                                 "User-Agent": _UA,
-                                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                                 "Accept-Language": "ko-KR,ko;q=0.9",
-                                 "Accept-Encoding": "gzip, deflate, br",
-                                 "Referer": "https://mustit.co.kr/",
-                             })
-            print(f"[DEBUG mustit fetch] pd_id={pd_id} target={target[:60]} status={r.status_code}")
-            if r.status_code == 200:
-                html = r.text or ""
-                print(f"[DEBUG mustit fetch] OK html_len={len(html)} has_sellerId={'sellerId' in html} preview={repr(html[:200])}")
-                if len(html) < 500:
-                    continue  # 봇 감지 응답 → 다음 URL 시도
-                break
-        except Exception as e:
-            print(f"[DEBUG mustit fetch] EXCEPTION target={target[:60]} err={e}")
-            continue
+    try:
+        # 1단계: naver_session URL로 쿠키 획득 (원본 링크 그대로 사용)
+        session.get(link, timeout=6, headers={**_headers, "Referer": "https://search.shopping.naver.com/"}, allow_redirects=True)
+
+        # 2단계: 쿠키 있는 세션으로 product_detail 접근
+        target = f"https://mustit.co.kr/product_detail/{pd_id}"
+        r = session.get(target, timeout=8, headers={**_headers, "Referer": "https://mustit.co.kr/"}, allow_redirects=True)
+        if r.status_code == 200 and len(r.text) > 500:
+            html = r.text
+        else:
+            # 3단계: m.web 모바일 API 시도
+            target2 = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+            r2 = session.get(target2, timeout=8, headers={**_headers, "Referer": "https://mustit.co.kr/"}, allow_redirects=True)
+            if r2.status_code == 200 and len(r2.text) > 500:
+                html = r2.text
+    except Exception as e:
+        print(f"[DEBUG mustit fetch] EXCEPTION pd_id={pd_id} err={e}")
+
     if not html:
         return None
 
