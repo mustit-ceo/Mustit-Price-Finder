@@ -1932,6 +1932,16 @@ def index():
 def ping():
     return jsonify({"ok": True, "version": "2026-04-20-v17"})
 
+@app.route("/api/debug/storage")
+def debug_storage():
+    import os
+    return jsonify({
+        "data_dir_exists": os.path.isdir("/data"),
+        "config_file_path": CONFIG_FILE,
+        "config_file_exists": os.path.isfile(CONFIG_FILE),
+        "data_dir_contents": os.listdir("/data") if os.path.isdir("/data") else [],
+    })
+
 @app.route("/api/myip")
 def myip():
     try:
