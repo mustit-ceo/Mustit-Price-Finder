@@ -815,18 +815,32 @@ def _fetch_mustit_detail(link):
     if link in _DETAIL_CACHE:
         return _DETAIL_CACHE[link]
 
-    target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
-    try:
-        r = requests.get(target, timeout=6, allow_redirects=True,
-                         headers={"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"})
-        print(f"[DEBUG mustit fetch] pd_id={pd_id} status={r.status_code} url={r.url[:80]}")
-        if r.status_code != 200:
-            print(f"[DEBUG mustit fetch] FAIL status={r.status_code}")
-            return None
-        html = r.text or ""
-        print(f"[DEBUG mustit fetch] html_len={len(html)} has_sellerId={'sellerId' in html}")
-    except Exception as e:
-        print(f"[DEBUG mustit fetch] EXCEPTION pd_id={pd_id} err={e}")
+    # 시도할 URL 목록 (우선순위 순)
+    candidates = [
+        f"https://mustit.co.kr/product_detail/{pd_id}",
+        f"https://web.mustit.co.kr/product_detail/{pd_id}",
+        f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
+    ]
+    html = ""
+    for target in candidates:
+        try:
+            r = requests.get(target, timeout=8, allow_redirects=True,
+                             headers={
+                                 "User-Agent": _UA,
+                                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                 "Accept-Language": "ko-KR,ko;q=0.9",
+                                 "Accept-Encoding": "gzip, deflate, br",
+                                 "Referer": "https://mustit.co.kr/",
+                             })
+            print(f"[DEBUG mustit fetch] pd_id={pd_id} target={target[:60]} status={r.status_code}")
+            if r.status_code == 200:
+                html = r.text or ""
+                print(f"[DEBUG mustit fetch] OK html_len={len(html)} has_sellerId={'sellerId' in html}")
+                break
+        except Exception as e:
+            print(f"[DEBUG mustit fetch] EXCEPTION target={target[:60]} err={e}")
+            continue
+    if not html:
         return None
 
     detail = {"product_no": pd_id}
