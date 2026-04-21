@@ -1764,7 +1764,11 @@ def scrape_seller_id(item):
     if plat == "머스트잇":
         # product_no는 detail fetch 성패와 무관하게 항상 링크에서 추출 저장.
         # (바로가기 버튼의 naver_session URL 구성에 필요)
-        _pd_m = re.search(r'/product_detail/(\d+)', unquote(link))
+        _decoded_link = unquote(link)
+        _pd_m = re.search(r'/product_detail/(\d+)', _decoded_link)
+        print(f"[DEBUG mustit] link={link[:120]}")
+        print(f"[DEBUG mustit] decoded={_decoded_link[:120]}")
+        print(f"[DEBUG mustit] product_detail match={_pd_m.group(1) if _pd_m else 'NONE'}")
         if _pd_m:
             item["_mustit_product_no"] = _pd_m.group(1)
 
