@@ -2750,7 +2750,7 @@ def check_auth():
             pass
     resp = app.make_response("")
     resp.status_code = 401
-    resp.headers["WWW-Authenticate"] = 'Basic realm="Mustit 가격비교"'
+    resp.headers["WWW-Authenticate"] = 'Basic realm="Mustit"'
     return resp
 
 @app.route("/health")
