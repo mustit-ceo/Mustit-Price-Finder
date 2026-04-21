@@ -13,8 +13,10 @@ from flask import Flask, request, jsonify, send_from_directory, after_this_reque
 app = Flask(__name__, static_folder="static")
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE  = os.path.join(BASE_DIR, "seller_config.json")
-KEYS_FILE    = os.path.join(BASE_DIR, "api_keys.json")
+# Railway Volume이 마운트된 경우 /data 사용, 아니면 로컬 폴더 사용
+_DATA_DIR    = "/data" if os.path.isdir("/data") else BASE_DIR
+CONFIG_FILE  = os.path.join(_DATA_DIR, "seller_config.json")
+KEYS_FILE    = os.path.join(_DATA_DIR, "api_keys.json")
 API_URL      = "https://openapi.naver.com/v1/search/shop.json"
 PRICE_RANGE  = 0.20
 MUSTIT_PRICE_FLOOR_RATIO = 0.50   # anchor 기준 -50% 미만 제품 제외
