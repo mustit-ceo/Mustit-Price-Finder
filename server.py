@@ -1929,6 +1929,14 @@ def index():
 def ping():
     return jsonify({"ok": True, "version": "2026-04-20-v17"})
 
+@app.route("/api/myip")
+def myip():
+    try:
+        r = requests.get("https://api.ipify.org?format=json", timeout=5)
+        return jsonify(r.json())
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 @app.route("/api/debug/trenbe/<int:goodsno>")
 def debug_trenbe(goodsno):
     """트렌비 displaygateway API 원본 응답 확인용 (개발 전용)."""
