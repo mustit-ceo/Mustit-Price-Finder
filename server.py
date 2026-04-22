@@ -2120,7 +2120,9 @@ def api_enrich():
                 sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
                 def _tokenize(text):
-                    """(주)/주식회사 제거 후, 공백·괄호·슬래시 기준으로 모든 토큰 추출"""
+                    """(주)/주식회사 제거 후, 공백 기준으로 토큰 추출.
+                    괄호 안 내용은 별도 토큰으로 추가 (한글+영문 조합 매칭용).
+                    하이픈/슬래시는 쪼개지 않음 (seller ID 보존: h-avenue0325 등)."""
                     t = re.sub(r'\(주\)', ' ', text or '')
                     t = re.sub(r'주식회사', ' ', t)
                     t = t.lower()
@@ -2129,7 +2131,7 @@ def api_enrich():
                     # 괄호 제거
                     t_no_paren = re.sub(r'[(（\[][^)）\]]*[)）\]]', ' ', t)
                     tokens = set()
-                    for part in re.split(r'[\s/\-]+', t_no_paren):
+                    for part in re.split(r'\s+', t_no_paren):
                         part = part.strip()
                         if part: tokens.add(part)
                     for content in paren:
