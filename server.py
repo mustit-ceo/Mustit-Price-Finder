@@ -3180,64 +3180,38 @@ def api_debug_mustit_live():
     except Exception as e:
         result["curl_cffi"] = {"error": str(e)}
 
-    # ── Mustit 내부 REST API 엔드포인트 탐색 ──────────────────────────
-    # 앱/Next.js가 호출하는 JSON API는 CF 보호가 다를 수 있음
-    # ── URL 탐색: /v2/ 이전 구 경로 + 데스크톱 사이트 (CF 미차단 확인) ──────
-    # mustit.co.kr 데스크톱: 500 반환 → CF 차단 아님, 서버 존재
-    # m.web.mustit.co.kr/api/*: 404 Nuxt.js HTML → CF 차단 아님
-    # m.web.mustit.co.kr/v2/m/...: 405 → CF 차단
-    _DESKTOP_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                   "AppleWebKit/537.36 (KHTML, like Gecko) "
-                   "Chrome/124.0.0.0 Safari/537.36")
+    # ── Mustit 앱 전용 API 도메인 탐색 ──────────────────────────────────
+    # UA/경로 모두 실패 → IP 차단 확정. 앱이 쓰는 별도 API 서버는 CF 규칙이 다를 수 있음.
+    _APP_HDR = {
+        "User-Agent": _UA,
+        "Accept": "application/json",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": "https://mustit.co.kr/",
+    }
     api_candidates = [
-        # ① 데스크톱 사이트 (desktop UA → 모바일 리다이렉트 방지)
-        ("desktop_product",
-         f"https://mustit.co.kr/product_detail/{pd_id}",
-         {"User-Agent": _DESKTOP_UA, "Accept-Language": "ko-KR,ko;q=0.9",
-          "Accept": "text/html"}, False),
-        # ② 구 모바일 경로 (/v2/ 없이)
-        ("old_mobile_v1",
-         f"https://m.web.mustit.co.kr/m/product/product_detail/{pd_id}",
-         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
-        ("old_mobile_v2",
-         f"https://m.web.mustit.co.kr/product/product_detail/{pd_id}",
-         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
-        ("old_mobile_goods",
-         f"https://m.web.mustit.co.kr/goods/{pd_id}",
-         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
-        # ③ Nuxt.js 구 API 패턴 (m.web.mustit.co.kr/api/* 는 CF 차단 없음)
-        ("nuxt_api_detail",
-         f"https://m.web.mustit.co.kr/api/goods/detail/{pd_id}",
-         {"User-Agent": _UA, "Accept": "application/json"}, False),
-        ("nuxt_api_v3",
-         f"https://m.web.mustit.co.kr/api/v3/goods/{pd_id}",
-         {"User-Agent": _UA, "Accept": "application/json"}, False),
-        ("nuxt_api_product_detail",
-         f"https://m.web.mustit.co.kr/api/product/detail/{pd_id}",
-         {"User-Agent": _UA, "Accept": "application/json"}, False),
-        # ④ 데스크톱 구 API
-        ("desktop_api_detail",
-         f"https://mustit.co.kr/api/goods/detail/{pd_id}",
-         {"User-Agent": _DESKTOP_UA, "Accept": "application/json"}, False),
-        ("desktop_goods_direct",
-         f"https://mustit.co.kr/goods/{pd_id}",
-         {"User-Agent": _DESKTOP_UA, "Accept": "text/html"}, False),
-        # ⑤ Next.js RSC 헤더 (v2 경로이지만 RSC 요청으로 CF 규칙이 다를 수 있음)
-        ("rsc_fetch",
-         f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
-         {"User-Agent": _UA, "RSC": "1", "Accept": "text/x-component",
-          "Next-Router-State-Tree": "%5B%22%22%2C%7B%7D%2Cnull%2Cnull%2Ctrue%5D"}, False),
+        # ① api.mustit.co.kr (앱 전용 REST API 가능성 높음)
+        f"https://api.mustit.co.kr/v1/goods/{pd_id}",
+        f"https://api.mustit.co.kr/v2/goods/{pd_id}",
+        f"https://api.mustit.co.kr/v1/product/{pd_id}",
+        f"https://api.mustit.co.kr/goods/{pd_id}",
+        f"https://api.mustit.co.kr/product/{pd_id}",
+        # ② 데스크톱 서버 API (500 반환하지만 IP 차단 아님 → 다른 경로 시도)
+        f"https://mustit.co.kr/api/v1/goods/{pd_id}/detail",
+        f"https://mustit.co.kr/api/product_detail/{pd_id}",
+        f"https://mustit.co.kr/api/v2/product/{pd_id}",
+        # ③ BFF/백엔드 서버 추정 패턴
+        f"https://bff.mustit.co.kr/v1/goods/{pd_id}",
+        f"https://app.mustit.co.kr/api/goods/{pd_id}",
     ]
 
     api_results = []
     sess2 = _get_mustit_session()
-    for label, url, hdrs, follow in api_candidates:
+    for url in api_candidates:
         try:
             fn = sess2.get if sess2 else requests.get
-            r2 = fn(url, timeout=10, headers=hdrs, allow_redirects=follow)
+            r2 = fn(url, timeout=8, headers=_APP_HDR, allow_redirects=False)
             body = r2.text or ""
             api_results.append({
-                "label": label,
                 "url": url,
                 "status": r2.status_code,
                 "len": len(body),
@@ -3245,51 +3219,38 @@ def api_debug_mustit_live():
                 "head_200": body[:200],
             })
         except Exception as ex:
-            api_results.append({"label": label, "url": url, "error": str(ex)})
+            api_results.append({"url": url, "error": str(ex)})
     result["api_probe"] = api_results
 
-    # ── User-Agent 변형 테스트 (같은 URL, 다른 UA) ──────────────────────
-    # Cloudflare 규칙이 UA 기반이면 특정 UA로 405 우회 가능
-    _TARGET_URL = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
-    _BASE_HDR = {"Accept-Language": "ko-KR,ko;q=0.9",
-                 "Accept": "text/html,application/xhtml+xml,*/*"}
-    ua_candidates = [
-        # 앱 네이티브 UA 추정 패턴
-        ("mustit_android_app",   "Mustit/3.0.0 (Android; Mobile)"),
-        ("mustit_ios_app",       "Mustit/3.0.0 (iPhone; iOS 17.0)"),
-        ("mustit_android_v2",    "com.mustit.android/2.0 (Android 14; Mobile)"),
-        ("mustit_android_v1",    "MustitApp/1.0 (Android; SDK 33)"),
-        # 카카오/네이버 브라우저 (한국 유저 많음)
-        ("kakaotalk_android",    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/121.0.0.0 Mobile Safari/537.36 KAKAOTALK/10.0.0"),
-        ("naver_android",        "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 NAVER(inapp; search; 1000; 12.5.0)"),
-        # iOS Safari
-        ("safari_ios17",         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1"),
-        # Android Chrome (최신)
-        ("chrome_android_124",   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"),
-        # Samsung Browser
-        ("samsung_browser",      "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36"),
-        # 현재 사용 중인 UA (기준)
-        ("current_ua",           _UA),
-    ]
-    ua_results = []
-    for ua_label, ua_str in ua_candidates:
-        try:
-            fn = sess2.get if sess2 else requests.get
-            r3 = fn(_TARGET_URL, timeout=8,
-                    headers={**_BASE_HDR, "User-Agent": ua_str},
-                    allow_redirects=False)
-            body3 = r3.text or ""
-            ua_results.append({
-                "label": ua_label,
-                "status": r3.status_code,
-                "len": len(body3),
-                "has_sellerId": "sellerId" in body3,
-                "has_verification": "Human Verification" in body3,
-                "head_120": body3[:120],
-            })
-        except Exception as ex:
-            ua_results.append({"label": ua_label, "error": str(ex)})
-    result["ua_probe"] = ua_results
+    # ── Nuxt.js 번들에서 API 엔드포인트 패턴 추출 ─────────────────────
+    # m.web.mustit.co.kr/goods/* 는 CF 미차단 → 1.2MB Nuxt.js 앱 반환
+    # JS 번들 안에 실제 API baseURL이 하드코딩되어 있을 수 있음
+    try:
+        fn3 = sess2.get if sess2 else requests.get
+        r_nuxt = fn3(
+            f"https://m.web.mustit.co.kr/goods/{pd_id}",
+            timeout=15, headers={**_APP_HDR, "Accept": "text/html"},
+            allow_redirects=False,
+        )
+        nuxt_html = r_nuxt.text or ""
+        # mustit 도메인 포함 URL 패턴 추출
+        api_urls_found = list(set(re.findall(
+            r'["\']https?://(?:[a-z0-9-]+\.)*mustit\.co\.kr/[^"\'<>\s]{3,80}["\']',
+            nuxt_html
+        )))[:30]
+        # baseURL / axios 설정 패턴
+        base_urls = list(set(re.findall(
+            r'baseURL["\']?\s*[:=]\s*["\']([^"\']+mustit[^"\']+)["\']',
+            nuxt_html
+        )))[:10]
+        result["nuxt_bundle_analysis"] = {
+            "status": r_nuxt.status_code,
+            "len": len(nuxt_html),
+            "api_urls_found": api_urls_found,
+            "base_urls": base_urls,
+        }
+    except Exception as ex:
+        result["nuxt_bundle_analysis"] = {"error": str(ex)}
 
     return jsonify(result)
 
