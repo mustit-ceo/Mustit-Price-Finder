@@ -679,6 +679,13 @@ function normSeller(s){
 // 정규화된 예외 목록 (빠른 룩업용)
 function buildExcNormSet(raw){ return new Set([...raw].map(normSeller).filter(Boolean)); }
 let sellerExcNormSet = buildExcNormSet(sellerExcSet);
+// 예외 여부 판단: 정확 일치 또는 판매자명이 예외 키워드를 포함하는 경우
+function isSellerExc(txt){
+  if(!txt) return false;
+  const norm = normSeller(txt);
+  for(const exc of sellerExcNormSet){ if(norm === exc || norm.includes(exc)) return true; }
+  return false;
+}
 let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set (gray 표시용)
 const BASE=window.location.origin;
 
@@ -915,7 +922,7 @@ function renderRank(byPlat){
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
           const isCfg = it.link && lastMatchedLinks.has(it.link);
-          const isExc = txt && sellerExcNormSet.has(normSeller(txt));
+          const isExc = isSellerExc(txt);
           tdS.style.color = isCfg ? '#666666' : isExc ? '#999999' : '#4E95D9';
         }
         if(it.link){
