@@ -2970,44 +2970,49 @@ def api_debug_mustit_search():
 
 @app.route("/api/debug/mustit_live")
 def api_debug_mustit_live():
-    """Railway에서 실제로 받는 HTML 진단. ?pd_id=숫자
-    curl_cffi 설치 여부, 세션 상태, final URL, sellerId 추출 여부를 반환."""
+    """Railway 환경 진단 (Playwright + curl_cffi 모두 테스트). ?pd_id=숫자"""
     pd_id = request.args.get("pd_id", "121340554").strip()
-    target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
     result = {
         "pd_id": pd_id,
-        "target": target,
         "has_cffi": _HAS_CFFI,
-        "session_alive": _MUSTIT_SESSION is not None,
+        "has_playwright": _HAS_PLAYWRIGHT,
+        "pw_browser_alive": _PW_BROWSER is not None,
     }
+
+    # ── Playwright 테스트 ──────────────────────────────────────────────
+    pw_html = ""
+    try:
+        pw_html = _fetch_mustit_html_playwright(pd_id) or ""
+        seller_idx = pw_html.find('sellerId')
+        result["playwright"] = {
+            "html_length": len(pw_html),
+            "has_sellerId": seller_idx >= 0,
+            "sellerId_context": pw_html[max(0,seller_idx-20):seller_idx+60] if seller_idx >= 0 else None,
+            "html_head_200": pw_html[:200],
+        }
+    except Exception as e:
+        result["playwright"] = {"error": str(e)}
+
+    # ── curl_cffi / requests 테스트 ────────────────────────────────────
+    target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
     try:
         sess = _get_mustit_session()
-        result["session_alive_after_get"] = _MUSTIT_SESSION is not None
-        hdrs = {
-            "User-Agent": _UA,
-            "Accept-Language": "ko-KR,ko;q=0.9",
-            "Referer": "https://m.web.mustit.co.kr/",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-        }
-        if sess:
-            r = sess.get(target, timeout=12, headers=hdrs, allow_redirects=True)
-        else:
-            r = requests.get(target, timeout=10, headers=hdrs, allow_redirects=True)
-        final_url = str(getattr(r, 'url', target))
+        hdrs = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9",
+                "Referer": "https://m.web.mustit.co.kr/"}
+        r = sess.get(target, timeout=10, headers=hdrs, allow_redirects=True) if sess \
+            else requests.get(target, timeout=8, headers=hdrs, allow_redirects=True)
         html = r.text or ""
         seller_idx = html.find('sellerId')
-        result.update({
+        result["curl_cffi"] = {
             "status_code": r.status_code,
-            "final_url": final_url,
+            "final_url": str(getattr(r, 'url', target)),
             "html_length": len(html),
-            "redirected_away": 'product_detail' not in final_url,
             "has_sellerId": seller_idx >= 0,
-            "sellerId_context": html[max(0,seller_idx-30):seller_idx+80] if seller_idx >= 0 else None,
-            "html_head_300": html[:300],
-        })
+            "html_head_200": html[:200],
+        }
     except Exception as e:
-        result["error"] = str(e)
+        result["curl_cffi"] = {"error": str(e)}
+
     return jsonify(result)
 
 
