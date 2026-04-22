@@ -900,7 +900,7 @@ function renderRank(byPlat){
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
           const isCfg = it.link && lastMatchedLinks.has(it.link);
-          const isExc = it.mallName && sellerExcSet.has(it.mallName);
+          const isExc = txt && sellerExcSet.has(txt);
           tdS.style.color = isCfg ? '#666666' : isExc ? '#888888' : '#4E95D9';
         }
         if(it.link){
