@@ -2989,16 +2989,38 @@ def api_debug_mustit_live():
     result["pw_browser_alive"] = _PW_BROWSER is not None
     result["pw_launch_error"] = pw_launch_error
 
-    pw_html = ""
+    # Playwright raw 테스트 (sellerId 체크 없이 실제 HTML 확인)
     try:
-        pw_html = _fetch_mustit_html_playwright(pd_id) or ""
-        seller_idx = pw_html.find('sellerId')
-        result["playwright"] = {
-            "html_length": len(pw_html),
-            "has_sellerId": seller_idx >= 0,
-            "sellerId_context": pw_html[max(0,seller_idx-20):seller_idx+60] if seller_idx >= 0 else None,
-            "html_head_200": pw_html[:200],
-        }
+        browser = _get_pw_browser()
+        if browser:
+            url = f"https://mustit.co.kr/product_detail/{pd_id}"
+            ctx = browser.new_context(
+                locale="ko-KR", user_agent=_UA,
+                viewport={"width": 1280, "height": 800},
+                extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
+            )
+            page = ctx.new_page()
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(2000)
+                pw_html = page.content()
+                final_pw_url = page.url
+            except Exception as ge:
+                pw_html = ""
+                final_pw_url = f"ERROR: {ge}"
+            ctx.close()
+            seller_idx = pw_html.find('sellerId')
+            result["playwright"] = {
+                "final_url": final_pw_url,
+                "html_length": len(pw_html),
+                "has_sellerId": seller_idx >= 0,
+                "sellerId_context": pw_html[max(0,seller_idx-20):seller_idx+60] if seller_idx >= 0 else None,
+                "html_head_300": pw_html[:300],
+                "has_verification": "Human Verification" in pw_html,
+                "has_next_f": "__next_f" in pw_html,
+            }
+        else:
+            result["playwright"] = {"error": "browser is None"}
     except Exception as e:
         result["playwright"] = {"error": str(e)}
 
