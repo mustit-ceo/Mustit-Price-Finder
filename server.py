@@ -2103,16 +2103,30 @@ def api_enrich():
             for plat, sid in smap.items():
                 sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
-                def _normalize(text):
-                    """(주), 주식회사 제거 후 공백 정리"""
-                    t = re.sub(r'\(주\)', '', text or '')
-                    t = re.sub(r'주식회사', '', t)
-                    return t.strip().lower()
-                sid_norm = _normalize(sid)
+                def _tokenize(text):
+                    """(주)/주식회사 제거 후, 공백·괄호·슬래시 기준으로 모든 토큰 추출"""
+                    t = re.sub(r'\(주\)', ' ', text or '')
+                    t = re.sub(r'주식회사', ' ', t)
+                    t = t.lower()
+                    # 괄호 안 내용을 별도 토큰으로 추출
+                    paren = re.findall(r'[(（\[]\s*([^)）\]]+?)\s*[)）\]]', t)
+                    # 괄호 제거
+                    t_no_paren = re.sub(r'[(（\[][^)）\]]*[)）\]]', ' ', t)
+                    tokens = set()
+                    for part in re.split(r'[\s/\-]+', t_no_paren):
+                        part = part.strip()
+                        if part: tokens.add(part)
+                    for content in paren:
+                        content = content.strip()
+                        if content: tokens.add(content)
+                        for part in re.split(r'\s+', content):
+                            part = part.strip()
+                            if part: tokens.add(part)
+                    return tokens
+                sid_tokens = _tokenize(sid)
                 def _word_match(text):
-                    """(주)/주식회사 제거 후 공백 기준 토큰 중 sid와 완전 일치하면 True"""
-                    tokens = re.split(r'\s+', _normalize(text))
-                    return bool(sid_norm) and sid_norm in tokens
+                    """sid 토큰 중 하나라도 text 토큰과 일치하면 True"""
+                    return bool(sid_tokens and sid_tokens & _tokenize(text))
                 found = next((it for it in by_plat.get(plat, [])
                               if _word_match(it.get("seller") or "")
                               or _word_match(it.get("mallName") or "")), None)
