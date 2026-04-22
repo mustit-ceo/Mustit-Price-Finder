@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, after_this_request
 
 app = Flask(__name__, static_folder="static")
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB 업로드 제한
+app.config["MAX_CONTENT_LENGTH"] = 150 * 1024 * 1024  # 150MB 업로드 제한
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 # Railway Volume이 마운트된 경우 /data 사용, 아니면 로컬 폴더 사용
@@ -437,27 +437,36 @@ def _load_mustit_csv_from_disk():
 def _parse_mustit_csv(text: str) -> dict:
     """CSV 텍스트 → {mallProductId: sellerId} 딕셔너리.
     컬럼명은 유연하게 인식 (한/영 모두 지원, BOM 자동 제거).
+    300만 건 대용량 처리를 위해 인덱스 기반 파싱 사용.
     """
     import csv, io
     result = {}
-    # BOM 명시적 제거 (utf-8-sig 디코딩 후에도 남아있을 수 있음)
+    # BOM 명시적 제거
     text = text.lstrip("\ufeff").strip()
-    reader = csv.DictReader(io.StringIO(text))
+
+    _ID_COLS    = {"mallProductId", "mall_product_id", "상품번호", "product_id", "pd_id", "id"}
+    _SELL_COLS  = {"sellerId", "seller_id", "판매자ID", "판매자아이디", "seller"}
+
+    reader = csv.reader(io.StringIO(text))
+    try:
+        header = [h.lstrip("\ufeff").strip() for h in next(reader)]
+    except StopIteration:
+        return result
+
+    # 컬럼 인덱스 사전 결정
+    id_idx = next((i for i, h in enumerate(header) if h in _ID_COLS), None)
+    sl_idx = next((i for i, h in enumerate(header) if h in _SELL_COLS), None)
+    if id_idx is None or sl_idx is None:
+        return result
+
     for row in reader:
-        # 키에서도 BOM/공백 제거
-        cleaned = {k.lstrip("\ufeff").strip(): v for k, v in row.items() if k}
-        # mallProductId/상품번호 컬럼 인식
-        pd_id = (
-            cleaned.get("mallProductId") or cleaned.get("mall_product_id") or
-            cleaned.get("상품번호") or cleaned.get("product_id") or cleaned.get("pd_id") or ""
-        ).strip()
-        # sellerId/판매자ID 컬럼 인식
-        seller = (
-            cleaned.get("sellerId") or cleaned.get("seller_id") or
-            cleaned.get("판매자ID") or cleaned.get("판매자아이디") or cleaned.get("seller") or ""
-        ).strip()
-        if pd_id and seller:
-            result[pd_id] = seller
+        try:
+            pid = row[id_idx].strip()
+            sid = row[sl_idx].strip()
+            if pid and sid:
+                result[pid] = sid
+        except IndexError:
+            continue
     return result
 
 # 서버 기동 시 자동 로드
