@@ -3255,58 +3255,88 @@ def api_debug_mustit_live():
     return jsonify(result)
 
 
-@app.route("/api/mustit_exposure")
-def api_mustit_exposure():
-    """머스트잇 노출순위 조회: 가격순 상위 10개 머스트잇 상품의 네이버 랭킹순 노출순위 반환."""
-    query = request.args.get("query", "").strip()
-    if not query:
-        return jsonify({"error": "query 파라미터가 필요합니다."}), 400
-    try:
-        # 1. 네이버랭킹순(sim) 호출 → 링크별 노출순위 맵
-        sim_items = call_api(query, max_items=200, sort="sim")
-        rank_map = {}
-        for idx, it in enumerate(sim_items):
-            link = (it.get("link") or "").strip()
-            if link and link not in rank_map:
-                rank_map[link] = idx + 1
-
-        # 2. 가격순(asc) 호출 → 머스트잇만 필터, 상위 10개
-        asc_items = call_api(query, max_items=300, sort="asc")
-        results = []
-        seen = set()
-        for item in asc_items:
+def _fetch_mustit_asc_top10(query: str) -> list:
+    """가격순(asc)으로 머스트잇 상품 10개 확보되면 즉시 중단. 과도한 페이지 수집 방지."""
+    keys = load_keys()
+    cid  = keys.get("client_id",  "").strip()
+    csec = keys.get("client_secret", "").strip()
+    if not cid or not csec:
+        raise ValueError("API 키 미설정 — 설정 화면에서 네이버 Client ID / Secret을 입력하세요.")
+    headers = {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": csec}
+    results, seen, start = [], set(), 1
+    while len(results) < 10 and start <= 1000:
+        try:
+            r = requests.get(API_URL,
+                params={"query": query, "display": 100, "start": start, "sort": "asc"},
+                headers=headers, timeout=10)
+        except requests.exceptions.Timeout:
+            raise ValueError("요청 시간 초과 — 잠시 후 다시 시도하세요.")
+        except requests.exceptions.ConnectionError:
+            raise ValueError("네트워크 연결 오류 — 인터넷 연결을 확인하세요.")
+        if r.status_code not in (200,):
+            break
+        batch = r.json().get("items", [])
+        if not batch:
+            break
+        for item in batch:
             if detect_platform(item) != "머스트잇":
                 continue
             link = (item.get("link") or "").strip()
             if not link or link in seen:
                 continue
             seen.add(link)
-            # 품번: mustit URL에서 product_detail ID 추출
-            pd_m = re.search(r'/product[_-]?detail/(\d+)', link)
-            if not pd_m:
-                pd_m = re.search(r'/(\d{5,})', link)
+            price_str = item.get("lprice", "0")
+            if not (price_str or "0").isdigit() or int(price_str or 0) == 0:
+                continue
+            results.append(item)
+            if len(results) >= 10:
+                return results
+        if len(batch) < 100:
+            break
+        start += 100
+    return results
+
+
+@app.route("/api/mustit_exposure")
+def api_mustit_exposure():
+    """머스트잇 노출순위 조회: sim·asc 병렬 호출 + asc 조기 종료로 속도 최적화."""
+    query = request.args.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "query 파라미터가 필요합니다."}), 400
+    try:
+        # sim(200개)과 asc(머스트잇 10개 조기종료)를 병렬 실행
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_sim = ex.submit(call_api, query, 200, "sim")
+            f_asc = ex.submit(_fetch_mustit_asc_top10, query)
+            sim_items = f_sim.result()
+            asc_items = f_asc.result()
+
+        # 링크 → 노출순위 맵
+        rank_map = {}
+        for idx, it in enumerate(sim_items):
+            link = (it.get("link") or "").strip()
+            if link and link not in rank_map:
+                rank_map[link] = idx + 1
+
+        # 결과 가공
+        results = []
+        for item in asc_items:
+            link = (item.get("link") or "").strip()
+            pd_m = re.search(r'/product[_-]?detail/(\d+)', link) or re.search(r'/(\d{5,})', link)
             product_no = pd_m.group(1) if pd_m else item.get("mallProductId", "")
             price_str = item.get("lprice", "0")
-            price = int(price_str) if price_str.isdigit() else 0
-            if price == 0:
-                continue
-            naver_rank = rank_map.get(link)
-            rc_str = item.get("reviewCount", "0") or "0"
-            review_count = int(rc_str) if str(rc_str).isdigit() else 0
+            price = int(price_str) if (price_str or "").isdigit() else 0
+            rc_str = str(item.get("reviewCount", "0") or "0")
+            review_count = int(rc_str) if rc_str.isdigit() else 0
             results.append({
                 "product_no": product_no,
                 "name": strip_html(item.get("title", "")),
                 "price": price,
                 "review_count": review_count,
-                "naver_rank": naver_rank,
+                "naver_rank": rank_map.get(link),
                 "link": link,
             })
-            if len(results) >= 10:
-                break
-        return jsonify({
-            "query": query,
-            "items": results,
-        })
+        return jsonify({"query": query, "items": results})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
