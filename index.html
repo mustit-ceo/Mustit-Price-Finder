@@ -78,7 +78,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 .ths{font-size:11px;color:var(--tx3);padding:3px 2px;text-align:center;background:var(--bg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tkn{font-size:12px;padding:3px 2px;text-align:center;color:var(--tx3);background:var(--bg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tkn.r1{color:var(--mu);font-weight:700;font-size:15px}
-.tkn.r2{color:#888;font-weight:600}
+.tkn.r2{color:#999;font-weight:600}
 .tkn.r3{color:#aaa;font-weight:600}
 .rrow{transition:background .1s}
 .tpr.clk{cursor:pointer}
@@ -522,7 +522,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         <textarea class="bm-ta" id="seller-exc-ta" style="height:180px"
           placeholder="mustit&#10;trenv&#10;ssg_official&#10;..."></textarea>
         <div style="font-size:11px;color:var(--tx3);margin-top:5px">
-          입력된 mallName은 미매칭(파란색) 대신 <span style="color:#888;font-weight:600">#888888</span>으로 표기됩니다.
+          입력된 mallName은 미매칭(파란색) 대신 <span style="color:#999;font-weight:600">#999999</span>으로 표기됩니다.
         </div>
       </div>
     </div>
@@ -908,7 +908,7 @@ function renderRank(byPlat){
         tdN.textContent = hasNrk ? String(it.naver_rank) : '—';
         tdN.title = hasNrk ? '네이버쇼핑 랭킹순 노출 순위' : '노출 순위 정보 없음';
         tdP.innerHTML = (isLow ? LO_ICON : '') + it.price.toLocaleString('ko-KR');
-        const txt = it.seller || '';
+        const txt = it.seller || it.mallName || '';
         tdS.textContent = txt;
         tdS.title = txt;
         // 서버 매칭 완료된 아이템이면 gray, 예외 목록이면 #888, 아니면 blue
@@ -916,7 +916,7 @@ function renderRank(byPlat){
         if(_plat !== '기타' && txt){
           const isCfg = it.link && lastMatchedLinks.has(it.link);
           const isExc = txt && sellerExcNormSet.has(normSeller(txt));
-          tdS.style.color = isCfg ? '#666666' : isExc ? '#888888' : '#4E95D9';
+          tdS.style.color = isCfg ? '#666666' : isExc ? '#999999' : '#4E95D9';
         }
         if(it.link){
           const open = () => window.open(it.link, '_blank');
@@ -1650,7 +1650,7 @@ function downloadExcel(){
       cols.forEach((col, ci)=>{
         const it = col[i] || null;
         if(!it){ row.push('','',''); return; }
-        const seller = it.seller || '';
+        const seller = it.seller || it.mallName || '';
         row.push(
           it.naver_rank != null ? it.naver_rank : '',
           it.price,
@@ -1909,7 +1909,7 @@ function downloadBulkExcel(){
         cols.forEach((col,ci)=>{
           const it = col[i]||null;
           if(!it){row.push('','','');return;}
-          const seller = it.seller || '';
+          const seller = it.seller || it.mallName || '';
           row.push(it.naver_rank!=null?it.naver_rank:'', it.price, seller);
         });
         aoa.push(row);
