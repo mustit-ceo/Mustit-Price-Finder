@@ -330,14 +330,8 @@ def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False):
     mustit_min_price = anchor_price
     price_floor  = int(anchor_price * MUSTIT_PRICE_FLOOR_RATIO) if anchor_price > 0 else 0
 
-    sim0 = sim_items[0] if sim_items else {}
-    print(f"[DEBUG] query={query!r}")
-    print(f"[DEBUG] sim[0] title={sim0.get('title','')[:40]} mall={sim0.get('mallName','')} lprice={sim0.get('lprice','')}")
-    print(f"[DEBUG] anchor={anchor_price:,} floor={price_floor:,}")
-
     # ── Step 3: asc 1위부터 탐색, floor 이상 첫 상품부터 200개 수집 ──────────────────
     asc_items = call_api_asc_from_floor(query, price_floor, 200)
-    print(f"[DEBUG] asc_items 수집: {len(asc_items)}개")
 
     by_plat  = {p: [] for p in PLATFORM_MAP}
     by_plat["기타"] = []
@@ -407,6 +401,17 @@ _SELLER_CACHE = {}  # link → seller_id (세션 내 재사용)
 _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
 _BYPLAT_CACHE = {}  # (query,ref,top_n) → (timestamp, by_plat)
 _BYPLAT_TTL   = 90  # Phase-1 결과 재사용 TTL (초)
+
+# ── 머스트잇 요청 Rate Limiter ──────────────────────────────────────────────
+import threading
+_MUSTIT_LOCK         = threading.Lock()
+_MUSTIT_LAST_REQ     = 0.0   # 마지막 요청 시각
+_MUSTIT_MIN_INTERVAL = 1.5   # 요청 간 최소 간격 (초)
+# Circuit Breaker: 봇 감지 응답 연속 N회 → 일정 시간 중단
+_MUSTIT_BOT_COUNT    = 0
+_MUSTIT_BOT_LIMIT    = 3     # 연속 봇 감지 허용 횟수
+_MUSTIT_BOT_COOLDOWN = 60.0  # 봇 감지 후 대기 시간 (초)
+_MUSTIT_BOT_UNTIL    = 0.0   # cooldown 만료 시각
 
 def _find_first_key(obj, keys):
     """중첩 dict/list를 재귀 탐색해 keys 중 하나를 value 값이 비어있지 않은 상태로 최초 발견 시 반환."""
@@ -803,10 +808,11 @@ def _fetch_trenbe_detail(link):
 
 def _fetch_mustit_detail(link):
     """머스트잇 product_detail 페이지에서 sellerId + 상세정보를 한 번에 추출.
-    네이버 naver_session 쿠키를 먼저 획득한 뒤 product_detail 페이지 접근.
     반환: dict(seller, condition, auth_status, shipping_fee, seller_grade,
                stock, actual_price, origin_price, product_no) | None
     """
+    global _MUSTIT_LAST_REQ, _MUSTIT_BOT_COUNT, _MUSTIT_BOT_UNTIL
+
     decoded = unquote(link)
     m = re.search(r'/product_detail/(\d+)', decoded)
     if not m: return None
@@ -815,6 +821,21 @@ def _fetch_mustit_detail(link):
     # detail 캐시 확인
     if link in _DETAIL_CACHE:
         return _DETAIL_CACHE[link]
+
+    # ── Circuit Breaker: cooldown 중이면 즉시 포기 ──────────────────────
+    now = time.time()
+    if now < _MUSTIT_BOT_UNTIL:
+        remaining = int(_MUSTIT_BOT_UNTIL - now)
+        print(f"[mustit] circuit breaker 활성 — {remaining}초 후 재시도 가능, pd_id={pd_id} skip")
+        return None
+
+    # ── Rate Limiter: 요청 간 최소 간격 보장 (직렬화) ───────────────────
+    with _MUSTIT_LOCK:
+        now = time.time()
+        wait = _MUSTIT_MIN_INTERVAL - (now - _MUSTIT_LAST_REQ)
+        if wait > 0:
+            time.sleep(wait)
+        _MUSTIT_LAST_REQ = time.time()
 
     _headers = {
         "User-Agent": _UA,
@@ -825,25 +846,23 @@ def _fetch_mustit_detail(link):
         "Upgrade-Insecure-Requests": "1",
     }
 
-    session = requests.Session()
     html = ""
     try:
-        # 1단계: naver_session URL로 쿠키 획득 (원본 링크 그대로 사용)
-        session.get(link, timeout=6, headers={**_headers, "Referer": "https://search.shopping.naver.com/"}, allow_redirects=True)
-
-        # 2단계: 쿠키 있는 세션으로 product_detail 접근
         target = f"https://mustit.co.kr/product_detail/{pd_id}"
-        r = session.get(target, timeout=8, headers={**_headers, "Referer": "https://mustit.co.kr/"}, allow_redirects=True)
+        r = requests.get(target, timeout=8,
+                         headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                         allow_redirects=True)
         if r.status_code == 200 and len(r.text) > 500:
             html = r.text
+            _MUSTIT_BOT_COUNT = 0  # 성공 시 봇 카운터 리셋
         else:
-            # 3단계: m.web 모바일 API 시도
-            target2 = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
-            r2 = session.get(target2, timeout=8, headers={**_headers, "Referer": "https://mustit.co.kr/"}, allow_redirects=True)
-            if r2.status_code == 200 and len(r2.text) > 500:
-                html = r2.text
+            _MUSTIT_BOT_COUNT += 1
+            print(f"[mustit] 봇 감지 응답 pd_id={pd_id} status={r.status_code} len={len(r.text)} (연속 {_MUSTIT_BOT_COUNT}회)")
+            if _MUSTIT_BOT_COUNT >= _MUSTIT_BOT_LIMIT:
+                _MUSTIT_BOT_UNTIL = time.time() + _MUSTIT_BOT_COOLDOWN
+                print(f"[mustit] circuit breaker 발동 — {_MUSTIT_BOT_COOLDOWN}초 대기")
     except Exception as e:
-        print(f"[DEBUG mustit fetch] EXCEPTION pd_id={pd_id} err={e}")
+        print(f"[mustit] EXCEPTION pd_id={pd_id} err={e}")
 
     if not html:
         return None
@@ -1790,9 +1809,6 @@ def scrape_seller_id(item):
         # (바로가기 버튼의 naver_session URL 구성에 필요)
         _decoded_link = unquote(link)
         _pd_m = re.search(r'/product_detail/(\d+)', _decoded_link)
-        print(f"[DEBUG mustit] link={link[:120]}")
-        print(f"[DEBUG mustit] decoded={_decoded_link[:120]}")
-        print(f"[DEBUG mustit] product_detail match={_pd_m.group(1) if _pd_m else 'NONE'}")
         if _pd_m:
             item["_mustit_product_no"] = _pd_m.group(1)
 
