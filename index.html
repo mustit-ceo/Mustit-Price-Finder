@@ -437,8 +437,12 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         엑셀 업로드
       </button>
       <input type="file" id="xlsxUpload" accept=".xlsx,.xls" style="display:none" onchange="handleXlsxUpload(event)"/>
-      <button class="btn" onclick="downloadTemplate()">
+      <button class="btn" onclick="downloadSellerConfig()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V2M4 8l4 4 4-4"/><rect x="1" y="12" width="14" height="3" rx="1"/></svg>
+        데이터 다운로드
+      </button>
+      <button class="btn" onclick="downloadTemplate()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8h14M1 4h14M1 12h14"/></svg>
         양식 다운로드
       </button>
     </div>
@@ -1229,6 +1233,24 @@ if(IS_SETTINGS_WIN){
 /* ══════════════════════════════════════════════════
    판매자 엑셀 업로드 / 양식 다운로드
    ══════════════════════════════════════════════════ */
+
+/* 현재 설정 데이터 엑셀 다운로드 */
+function downloadSellerConfig(){
+  const headers = ['머스트잇', '트렌비', 'SSG', '롯데온', '스마트스토어'];
+  const rows = [headers];
+  document.querySelectorAll('#cfgbody tr').forEach(tr=>{
+    const row = PLATS.map(p => tr.querySelector(`[data-plat="${p}"]`)?.value.trim() || '');
+    if(PLATS.some((_,i) => row[i])) rows.push(row);
+  });
+  if(rows.length <= 1){ toast('저장된 데이터가 없습니다.'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = headers.map(()=>({wch:20}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '판매자설정');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `판매자_설정_${stamp}.xlsx`);
+}
 
 /* 양식 엑셀 다운로드 */
 function downloadTemplate(){

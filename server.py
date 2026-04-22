@@ -2558,6 +2558,24 @@ def post_config():
     save_json(CONFIG_FILE, data)
     return jsonify({"ok": True})
 
+@app.route("/api/config/cleanup", methods=["POST"])
+def cleanup_config():
+    """설정에서 특정 값을 가진 셀만 빈 문자열로 초기화."""
+    body = request.get_json(force=True, silent=True) or {}
+    targets = body.get("values", [])  # 제거할 값 목록
+    if not targets:
+        return jsonify({"error": "values 필요"}), 400
+    targets_lower = [v.strip().lower() for v in targets]
+    cfg = load_config()
+    cleaned = 0
+    for label, smap in cfg.items():
+        for plat, sid in smap.items():
+            if (sid or "").strip().lower() in targets_lower:
+                cfg[label][plat] = ""
+                cleaned += 1
+    save_json(CONFIG_FILE, cfg)
+    return jsonify({"ok": True, "cleaned": cleaned})
+
 @app.route("/api/debug/mustit_dump")
 def api_debug_mustit_dump():
     """머스트잇 페이지 HTML을 파일로 저장 후 요약 반환. ?pd_id=숫자"""
