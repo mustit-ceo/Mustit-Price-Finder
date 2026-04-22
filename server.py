@@ -2103,11 +2103,16 @@ def api_enrich():
             for plat, sid in smap.items():
                 sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
-                sid_lower = sid.lower()
+                def _normalize(text):
+                    """(주), 주식회사 제거 후 공백 정리"""
+                    t = re.sub(r'\(주\)', '', text or '')
+                    t = re.sub(r'주식회사', '', t)
+                    return t.strip().lower()
+                sid_norm = _normalize(sid)
                 def _word_match(text):
-                    """공백 기준 토큰 중 sid와 완전 일치하는 것이 있으면 True"""
-                    tokens = re.split(r'\s+', (text or "").strip().lower())
-                    return sid_lower in tokens
+                    """(주)/주식회사 제거 후 공백 기준 토큰 중 sid와 완전 일치하면 True"""
+                    tokens = re.split(r'\s+', _normalize(text))
+                    return bool(sid_norm) and sid_norm in tokens
                 found = next((it for it in by_plat.get(plat, [])
                               if _word_match(it.get("seller") or "")
                               or _word_match(it.get("mallName") or "")), None)
