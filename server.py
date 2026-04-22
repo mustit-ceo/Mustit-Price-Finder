@@ -413,8 +413,9 @@ _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
 
 # ── 머스트잇 CSV 판매자 맵 (mallProductId → sellerId) ─────────────────────────
 # CSV 업로드로 갱신. 서버 재시작 시 디스크에서 자동 로드.
+import threading as _csv_threading
 _MUSTIT_CSV_MAP: dict = {}          # { "121340554": "ARTEMOA", ... }
-_MUSTIT_CSV_LOCK = threading.Lock()
+_MUSTIT_CSV_LOCK = _csv_threading.Lock()
 _MUSTIT_CSV_PATH = os.path.join(BASE_DIR, "mustit_sellers.csv")
 
 def _load_mustit_csv_from_disk():
