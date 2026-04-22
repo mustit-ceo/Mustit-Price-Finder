@@ -416,8 +416,8 @@ _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
 import sqlite3 as _sqlite3
 import threading as _csv_threading
 
-_MUSTIT_DB_PATH  = os.path.join(BASE_DIR, "mustit_sellers.db")
-_MUSTIT_CSV_PATH = os.path.join(BASE_DIR, "mustit_sellers.csv")  # 하위호환 경로
+_MUSTIT_DB_PATH  = os.path.join(_DATA_DIR, "mustit_sellers.db")
+_MUSTIT_CSV_PATH = os.path.join(_DATA_DIR, "mustit_sellers.csv")  # 하위호환 경로
 _MUSTIT_DB_LOCK  = _csv_threading.Lock()
 _MUSTIT_DB_COUNT = 0   # 현재 로드된 건수 (상태 표시용)
 

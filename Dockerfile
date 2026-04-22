@@ -13,5 +13,8 @@ RUN playwright install chromium --with-deps
 
 COPY . .
 
+# Railway Volume 마운트 포인트 (/data) 미리 생성
+RUN mkdir -p /data
+
 ENV PORT=8080
 CMD gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
