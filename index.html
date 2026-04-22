@@ -244,30 +244,6 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 .bm-is{font-size:10px;color:var(--tx3);flex-shrink:0;min-width:52px;text-align:right}
 /* 완료 요약 */
 .bm-sum{padding:11px 14px;background:var(--bg3);border:.5px solid var(--bd);border-radius:var(--r);font-size:12px;display:flex;flex-direction:column;gap:4px;line-height:1.7}
-/* 머스트잇 노출순위 섹션 */
-.me-wrap{background:color-mix(in srgb,var(--mu) 6%,var(--bg2));border:.5px solid color-mix(in srgb,var(--mu) 20%,var(--bd));border-radius:var(--r);padding:11px 13px;display:flex;flex-direction:column;gap:9px}
-.me-head{font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.02em}
-.me-row{display:flex;gap:7px;align-items:center}
-.me-inp{flex:1;height:30px;font-size:12px;padding:0 9px;border-radius:var(--r);border:.5px solid var(--bd2);background:var(--bg2);color:var(--tx)}
-.me-inp:focus{outline:none;border-color:var(--mu)}
-.me-btn{height:30px;padding:0 13px;font-size:12px;font-weight:500;border-radius:var(--r);border:.5px solid var(--mu);background:var(--mu);color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.me-btn:hover{opacity:.88}
-.me-btn:disabled{opacity:.45;cursor:not-allowed}
-.me-result{display:none;flex-direction:column;gap:7px}
-.me-tbl-wrap{overflow:auto;max-height:180px;border:.5px solid var(--bd);border-radius:6px}
-.me-tbl{width:100%;border-collapse:collapse;font-size:11px}
-.me-tbl th{background:var(--bg3);color:var(--tx2);font-weight:600;padding:4px 8px;text-align:center;border-bottom:.5px solid var(--bd);position:sticky;top:0}
-.me-tbl td{padding:4px 8px;text-align:center;border-bottom:.5px solid var(--bd);color:var(--tx)}
-.me-tbl tbody tr:last-child td{border-bottom:none}
-.me-tbl td.me-rank{font-weight:700;color:var(--mu);font-size:13px}
-.me-tbl td.me-nr-none{color:var(--tx3);font-size:10px}
-.me-tbl td.me-name{text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
-.me-tbl td.me-price{font-weight:500;color:var(--tx)}
-.me-foot{display:flex;align-items:center;gap:7px}
-.me-xl-btn{height:28px;padding:0 11px;font-size:11px;font-weight:500;border-radius:var(--r);border:.5px solid #185c37;background:#217346;color:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0}
-.me-xl-btn:hover{background:#185c37}
-.me-meta{font-size:10px;color:var(--tx3)}
-.me-divider{border:none;border-top:.5px solid var(--bd);margin:2px 0}
 /* toast */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);padding:9px 16px;font-size:12px;border-radius:var(--r);border:.5px solid var(--bd);background:var(--bg2);z-index:999;opacity:0;transition:all .2s;max-width:500px;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -509,34 +485,6 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
     <!-- ── 입력 ── -->
     <div id="bm-idle">
       <div class="bm-body">
-
-        <!-- 머스트잇 노출순위 조회 -->
-        <div class="me-wrap">
-          <div class="me-head">📊 머스트잇 노출순위 조회</div>
-          <div class="me-row">
-            <input class="me-inp" id="me-kw" type="text" placeholder="검색 키워드 입력 (예: 구찌 크로스백)" onkeydown="if(event.key==='Enter')searchMustitExposure()">
-            <button class="me-btn" id="me-go" onclick="searchMustitExposure()">조회</button>
-          </div>
-          <div class="me-result" id="me-result">
-            <div class="me-tbl-wrap">
-              <table class="me-tbl">
-                <thead><tr>
-                  <th>가격순위</th><th>품번</th><th>상품명</th><th>가격(원)</th><th>노출순위</th>
-                </tr></thead>
-                <tbody id="me-tbody"></tbody>
-              </table>
-            </div>
-            <div class="me-foot">
-              <button class="me-xl-btn" id="me-xl" onclick="downloadExposureExcel()">
-                <svg width="12" height="14" viewBox="0 0 14 16" fill="none"><path d="M8.5 0H1C.45 0 0 .45 0 1v14c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V5.5L8.5 0Z" fill="#fff" fill-opacity=".22"/><path d="M8.5 0V5.5H14L8.5 0Z" fill="#fff" fill-opacity=".15"/><line x1="4.2" y1="8.5" x2="9.8" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="9.8" y1="8.5" x2="4.2" y2="14.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
-                Excel 다운로드
-              </button>
-              <span class="me-meta" id="me-meta"></span>
-            </div>
-          </div>
-        </div>
-        <hr class="me-divider">
-
         <div>
           <div class="bm-lbl">품번 목록 (한 줄에 하나씩)</div>
           <textarea class="bm-ta" id="bm-ta" placeholder="W261TS07701W&#10;GC-536249&#10;..." oninput="updBmCnt()"></textarea>
@@ -552,6 +500,10 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
             <label class="bm-mode" id="bm-card-full">
               <input type="radio" name="bmmode" value="full" onchange="updBmMode()">
               <div><div class="bm-mn">🔍 전체 조회</div><div class="bm-md">판매자 매칭 포함 · 각 플랫폼 직접 수집 · 건당 약 50초</div></div>
+            </label>
+            <label class="bm-mode" id="bm-card-exposure">
+              <input type="radio" name="bmmode" value="exposure" onchange="updBmMode()">
+              <div><div class="bm-mn">📊 머스트잇 노출순위 조회</div><div class="bm-md">머스트잇만 · 가격순 TOP 10 · 네이버랭킹순 노출순위 · 건당 약 3초</div></div>
             </label>
           </div>
         </div>
@@ -1516,6 +1468,7 @@ function updBmMode(){
   _bmMode = document.querySelector('input[name="bmmode"]:checked').value;
   document.getElementById('bm-card-fast').classList.toggle('sel', _bmMode==='fast');
   document.getElementById('bm-card-full').classList.toggle('sel', _bmMode==='full');
+  document.getElementById('bm-card-exposure').classList.toggle('sel', _bmMode==='exposure');
 }
 function _bmQueries(){
   return (document.getElementById('bm-ta').value||'')
@@ -1577,12 +1530,16 @@ async function startBulk(){
     ic.className = 'bm-ic run'; st.textContent = '조회 중...';
     ic.closest('.bm-item').scrollIntoView({block:'nearest',behavior:'smooth'});
 
-    const res = {query:q, ok:false, data:null, enrich:null, error:null};
+    const res = {query:q, ok:false, data:null, enrich:null, exposure:null, error:null};
     try{
-      res.data = await api(`/api/search?query=${encodeURIComponent(q)}`);
-      if(_bmMode==='full' && !_bmAbort){
-        st.textContent = '판매자 매칭 중...';
-        res.enrich = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
+      if(_bmMode==='exposure'){
+        res.exposure = await api(`/api/mustit_exposure?query=${encodeURIComponent(q)}`);
+      } else {
+        res.data = await api(`/api/search?query=${encodeURIComponent(q)}`);
+        if(_bmMode==='full' && !_bmAbort){
+          st.textContent = '판매자 매칭 중...';
+          res.enrich = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
+        }
       }
       res.ok = true;
       ic.className='bm-ic ok'; ic.textContent='✓'; st.textContent='완료';
@@ -1630,6 +1587,7 @@ async function startBulk(){
 function downloadBulkExcel(){
   if(!_bmResults.length) return;
   if(typeof XLSX==='undefined'){ toast('Excel 라이브러리 로드 중...'); return; }
+  if(_bmMode==='exposure'){ _downloadExposureExcel(); return; }
   const WB = XLSX.utils.book_new();
   const hasEnrich = _bmResults.some(r=>r.enrich);
 
@@ -1728,93 +1686,41 @@ refreshKey();
 // 초기 config 로드 → renderRank 색상 적용
 api('/api/config').then(c=>{ lastCfg=c; }).catch(()=>{});
 
-/* ── 머스트잇 노출순위 조회 ── */
-let _meItems = [];   // 마지막 조회 결과 (Excel 다운로드용)
-let _meQuery = '';
-
-async function searchMustitExposure(){
-  const kw = document.getElementById('me-kw').value.trim();
-  if(!kw){ toast('검색 키워드를 입력하세요.'); return; }
-  const btn = document.getElementById('me-go');
-  btn.disabled = true;
-  btn.textContent = '조회 중…';
-  document.getElementById('me-result').style.display = 'none';
-  try {
-    const data = await api(`/api/mustit_exposure?query=${encodeURIComponent(kw)}`);
-    _meItems = data.items || [];
-    _meQuery = kw;
-    const tbody = document.getElementById('me-tbody');
-    tbody.innerHTML = '';
-    if(_meItems.length === 0){
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="5" style="color:var(--tx3);padding:10px;text-align:center">머스트잇 상품을 찾을 수 없습니다.</td>';
-      tbody.appendChild(tr);
-    } else {
-      _meItems.forEach((it, i) => {
-        const tr = document.createElement('tr');
-        const nr = it.naver_rank != null
-          ? `<span style="font-weight:700">${it.naver_rank}</span>위`
-          : '<span style="color:var(--tx3);font-size:10px">200위 밖</span>';
-        tr.innerHTML = `
-          <td class="me-rank">${i+1}</td>
-          <td><a href="${it.link}" target="_blank" style="color:var(--blue);text-decoration:none">${it.product_no||'-'}</a></td>
-          <td class="me-name" title="${it.name}">${it.name}</td>
-          <td class="me-price">${it.price.toLocaleString()}</td>
-          <td>${nr}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-    document.getElementById('me-meta').textContent = `"${kw}" · 머스트잇 가격순 상위 ${_meItems.length}개`;
-    document.getElementById('me-result').style.display = 'flex';
-  } catch(e){
-    toast(e.message || '조회 실패', 'err');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '조회';
-  }
-}
-
-function downloadExposureExcel(){
-  if(!_meItems.length){ toast('조회 결과가 없습니다.'); return; }
-  if(typeof XLSX==='undefined'){ toast('Excel 라이브러리 로드 중...'); return; }
+/* ── 머스트잇 노출순위 조회 Excel ── */
+function _downloadExposureExcel(){
+  const rows = _bmResults.filter(r=>r.ok && r.exposure);
+  if(!rows.length) return;
   const WB = XLSX.utils.book_new();
 
-  // 헤더 구조 (참조 엑셀 형태)
-  // Row1: 품번 | 순위 (merged B-E)
-  // Row2: (blank) | 가격순위 | 가격(원) | 노출순위(네이버랭킹순)
-  const h1 = ['품번', '순위', '', ''];
-  const h2 = ['', '가격순위', '가격(원)', '노출순위(네이버랭킹순)'];
+  // 헤더: 품번(A) | 순위 1~10 (B~K) — 참조 엑셀과 동일 구조
+  // Row1: '품번' | '순위'(B~K 병합)
+  // Row2: ''     | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+  const h1 = ['품번', '순위', '', '', '', '', '', '', '', '', ''];
+  const h2 = ['', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const merges = [
-    {s:{r:0,c:0},e:{r:1,c:0}},  // 품번 세로 병합
-    {s:{r:0,c:1},e:{r:0,c:3}},  // 순위 가로 병합
+    {s:{r:0,c:0}, e:{r:1,c:0}},   // 품번 세로 병합
+    {s:{r:0,c:1}, e:{r:0,c:10}},  // 순위 가로 병합 (1~10)
   ];
 
   const aoa = [h1, h2];
-  _meItems.forEach((it, i) => {
-    aoa.push([
-      it.product_no || '',
-      i + 1,
-      it.price,
-      it.naver_rank != null ? it.naver_rank : '',
-    ]);
+  rows.forEach(r=>{
+    const items = r.exposure?.items || [];
+    // 가격순 1위~10위 각각의 노출순위, 없으면 빈칸
+    const rankCols = Array.from({length:10}, (_,i) => {
+      const it = items[i];
+      return (it && it.naver_rank != null) ? it.naver_rank : '';
+    });
+    aoa.push([r.query, ...rankCols]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges'] = merges;
-  ws['!cols'] = [{wch:18},{wch:8},{wch:12},{wch:18}];
-
-  // 가격 열 숫자 서식
-  const rng = XLSX.utils.decode_range(ws['!ref']);
-  for(let r=2; r<=rng.e.r; r++){
-    const a = XLSX.utils.encode_cell({r,c:2});
-    if(ws[a]&&ws[a].t==='n') ws[a].z='#,##0';
-  }
-
+  ws['!cols'] = [{wch:20}, ...Array(10).fill({wch:7})];
   XLSX.utils.book_append_sheet(WB, ws, '머스트잇 노출순위');
+
   const d = new Date();
   const ds = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-  const qname = _meQuery.replace(/[\\/:*?"<>|]/g,'').slice(0,20);
-  XLSX.writeFile(WB, `머스트잇노출순위_${qname}_${ds}.xlsx`);
+  XLSX.writeFile(WB, `머스트잇노출순위_${ds}.xlsx`);
   toast('Excel 다운로드 완료', 'suc');
 }
 </script>
