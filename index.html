@@ -893,7 +893,7 @@ function renderRank(byPlat){
         tdN.textContent = hasNrk ? String(it.naver_rank) : '—';
         tdN.title = hasNrk ? '네이버쇼핑 랭킹순 노출 순위' : '노출 순위 정보 없음';
         tdP.innerHTML = (isLow ? LO_ICON : '') + it.price.toLocaleString('ko-KR');
-        const txt = it.seller || it.mallName || '';
+        const txt = it.seller || '';
         tdS.textContent = txt;
         tdS.title = txt;
         // 서버 매칭 완료된 아이템이면 gray, 예외 목록이면 #888, 아니면 blue
@@ -1634,7 +1634,7 @@ function downloadExcel(){
       cols.forEach((col, ci)=>{
         const it = col[i] || null;
         if(!it){ row.push('','',''); return; }
-        const seller = it.seller || it.mallName || '';
+        const seller = it.seller || '';
         row.push(
           it.naver_rank != null ? it.naver_rank : '',
           it.price,
@@ -1893,7 +1893,7 @@ function downloadBulkExcel(){
         cols.forEach((col,ci)=>{
           const it = col[i]||null;
           if(!it){row.push('','','');return;}
-          const seller = it.seller || it.mallName || '';
+          const seller = it.seller || '';
           row.push(it.naver_rank!=null?it.naver_rank:'', it.price, seller);
         });
         aoa.push(row);
