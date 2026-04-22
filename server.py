@@ -2119,38 +2119,42 @@ def api_enrich():
             for plat, sid in smap.items():
                 sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
-                def _tokenize(text):
-                    """(주)/주식회사 제거 후, 공백 기준으로 토큰 추출.
-                    괄호 안 내용은 별도 토큰으로 추가 (한글+영문 조합 매칭용).
-                    하이픈/슬래시는 쪼개지 않음 (seller ID 보존: h-avenue0325 등)."""
-                    t = re.sub(r'\(주\)', ' ', text or '')
-                    t = re.sub(r'주식회사', ' ', t)
-                    t = t.lower()
-                    # 괄호 안 내용을 별도 토큰으로 추출
+
+                def _normalize(text):
+                    """(주)/주식회사 제거, 소문자, 공백 정리"""
+                    t = re.sub(r'\(주\)', '', text or '')
+                    t = re.sub(r'주식회사', '', t)
+                    t = t.lower().strip()
+                    return re.sub(r'\s+', ' ', t)
+
+                def _match_forms(text, _nrm=_normalize):
+                    """seller 텍스트의 정규화 가능한 모든 형태 반환.
+                    ① 정규화 전체  ② 괄호 제거  ③ 괄호 내용 각각
+                    '주식회사 뚜또베네(TUTTO BENE)' →
+                    {'뚜또베네(tutto bene)', '뚜또베네', 'tutto bene'}"""
+                    t = _nrm(text)
+                    forms = {t}
                     paren = re.findall(r'[(（\[]\s*([^)）\]]+?)\s*[)）\]]', t)
-                    # 괄호 제거
-                    t_no_paren = re.sub(r'[(（\[][^)）\]]*[)）\]]', ' ', t)
-                    tokens = set()
-                    for part in re.split(r'\s+', t_no_paren):
-                        part = part.strip()
-                        if part: tokens.add(part)
-                    for content in paren:
-                        content = content.strip()
-                        if content: tokens.add(content)
-                        for part in re.split(r'\s+', content):
-                            part = part.strip()
-                            if part: tokens.add(part)
-                    return tokens
-                sid_tokens = _tokenize(sid)
-                # 디버그: 해당 플랫폼 아이템들의 seller/mallName 목록 출력
-                _avail = [(it.get("seller",""), it.get("mallName","")) for it in by_plat.get(plat, [])]
-                print(f"[match] label={label!r} plat={plat} sid={sid!r} sid_tokens={sid_tokens} avail_sellers={[s for s,m in _avail][:5]}")
-                def _word_match(text, _st=sid_tokens, _tok=_tokenize):
-                    """sid 토큰 중 하나라도 text 토큰과 일치하면 True"""
-                    return bool(_st and _st & _tok(text))
+                    t_no_p = re.sub(r'[(（\[][^)）\]]*[)）\]]', '', t).strip()
+                    t_no_p = re.sub(r'\s+', ' ', t_no_p)
+                    if t_no_p:
+                        forms.add(t_no_p)
+                    for c in paren:
+                        c = c.strip()
+                        if c:
+                            forms.add(c)
+                    return forms
+
+                norm_sid = _normalize(sid)
+                # 디버그: 해당 플랫폼 아이템들의 seller 목록 출력
+                _avail = [it.get("seller","") for it in by_plat.get(plat, [])]
+                print(f"[match] plat={plat} sid={sid!r} norm={norm_sid!r} avail={_avail[:5]}")
+                def _seller_match(text, _ns=norm_sid, _mf=_match_forms):
+                    """정규화된 sid가 seller의 매칭 형태 중 하나와 정확 일치"""
+                    return bool(_ns and _ns in _mf(text))
                 found = next((it for it in by_plat.get(plat, [])
-                              if _word_match(it.get("seller") or "")
-                              or _word_match(it.get("mallName") or "")), None)
+                              if _seller_match(it.get("seller") or "")
+                              or _seller_match(it.get("mallName") or "")), None)
                 print(f"[match] → {'FOUND: '+found.get('seller','?') if found else 'NOT FOUND'}")
                 row["cells"][plat] = found
             rows.append(row)
