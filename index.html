@@ -664,6 +664,21 @@ const LO_ICON='<span class="lbg" title="최저가"><svg width="15" height="15" v
 let togMode=0, lastData=null, lastMatchRows=[], lastMatchRowsOrig=[], lastCfg={}, matchSortCol=0;
 // 판매자 예외 목록 (localStorage 영속)
 let sellerExcSet = new Set(JSON.parse(localStorage.getItem('sellerExcList')||'[]'));
+
+/* 판매자명 정규화: (주), 주식회사, (유), 유한회사, 주식회사, Inc., Corp. 등 제거 후 소문자 trim */
+function normSeller(s){
+  if(!s) return '';
+  return s
+    .replace(/\(주\)|\(유\)|\(합\)|\(사\)/g, '')
+    .replace(/주식회사|유한회사|합자회사|사단법인|재단법인/g, '')
+    .replace(/\bInc\.?\b|\bCorp\.?\b|\bLtd\.?\b|\bLLC\.?\b|\bCo\.?\b/gi, '')
+    .replace(/\(.*?\)/g, '')   // 나머지 괄호 내용 제거
+    .replace(/\s+/g, '')       // 공백 전부 제거
+    .toLowerCase();
+}
+// 정규화된 예외 목록 (빠른 룩업용)
+function buildExcNormSet(raw){ return new Set([...raw].map(normSeller).filter(Boolean)); }
+let sellerExcNormSet = buildExcNormSet(sellerExcSet);
 let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set (gray 표시용)
 const BASE=window.location.origin;
 
@@ -900,7 +915,7 @@ function renderRank(byPlat){
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
           const isCfg = it.link && lastMatchedLinks.has(it.link);
-          const isExc = txt && sellerExcSet.has(txt);
+          const isExc = txt && sellerExcNormSet.has(normSeller(txt));
           tdS.style.color = isCfg ? '#666666' : isExc ? '#888888' : '#4E95D9';
         }
         if(it.link){
@@ -1428,6 +1443,7 @@ function saveSellerExc(){
   const lines = document.getElementById('seller-exc-ta').value
     .split('\n').map(l=>l.trim()).filter(Boolean);
   sellerExcSet = new Set(lines);
+  sellerExcNormSet = buildExcNormSet(sellerExcSet);
   localStorage.setItem('sellerExcList', JSON.stringify(lines));
   closeSellerExcModal();
   toast(`판매자 예외 목록 저장 (${lines.length}건)`);
