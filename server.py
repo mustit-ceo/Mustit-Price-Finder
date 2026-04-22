@@ -410,6 +410,52 @@ _UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
        "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
 _SELLER_CACHE = {}  # link → seller_id (세션 내 재사용)
 _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
+
+# ── 머스트잇 CSV 판매자 맵 (mallProductId → sellerId) ─────────────────────────
+# CSV 업로드로 갱신. 서버 재시작 시 디스크에서 자동 로드.
+_MUSTIT_CSV_MAP: dict = {}          # { "121340554": "ARTEMOA", ... }
+_MUSTIT_CSV_LOCK = threading.Lock()
+_MUSTIT_CSV_PATH = os.path.join(BASE_DIR, "mustit_sellers.csv")
+
+def _load_mustit_csv_from_disk():
+    """서버 기동 시 디스크의 CSV 파일을 메모리에 로드."""
+    global _MUSTIT_CSV_MAP
+    if not os.path.exists(_MUSTIT_CSV_PATH):
+        return
+    try:
+        with open(_MUSTIT_CSV_PATH, "r", encoding="utf-8-sig") as f:
+            text = f.read()
+        mapping = _parse_mustit_csv(text)
+        with _MUSTIT_CSV_LOCK:
+            _MUSTIT_CSV_MAP = mapping
+        print(f"[mustit-csv] 디스크에서 로드 완료: {len(mapping)}건")
+    except Exception as e:
+        print(f"[mustit-csv] 디스크 로드 실패: {e}")
+
+def _parse_mustit_csv(text: str) -> dict:
+    """CSV 텍스트 → {mallProductId: sellerId} 딕셔너리.
+    컬럼명은 유연하게 인식 (한/영 모두 지원).
+    """
+    import csv, io
+    result = {}
+    reader = csv.DictReader(io.StringIO(text.strip()))
+    for row in reader:
+        # mallProductId 컬럼 인식
+        pd_id = (
+            row.get("mallProductId") or row.get("mall_product_id") or
+            row.get("상품번호") or row.get("product_id") or row.get("pd_id") or ""
+        ).strip()
+        # sellerId 컬럼 인식
+        seller = (
+            row.get("sellerId") or row.get("seller_id") or
+            row.get("판매자아이디") or row.get("판매자ID") or row.get("seller") or ""
+        ).strip()
+        if pd_id and seller:
+            result[pd_id] = seller
+    return result
+
+# 서버 기동 시 자동 로드
+_load_mustit_csv_from_disk()
 _BYPLAT_CACHE = {}  # (query,ref,top_n) → (timestamp, by_plat)
 _BYPLAT_TTL   = 90  # Phase-1 결과 재사용 TTL (초)
 
@@ -1064,6 +1110,15 @@ def _fetch_mustit_detail(link):
     # detail 캐시 확인
     if link in _DETAIL_CACHE:
         return _DETAIL_CACHE[link]
+
+    # ── CSV 맵 조회 (WAF 우회용 정적 매핑) ────────────────────────────────
+    with _MUSTIT_CSV_LOCK:
+        csv_seller = _MUSTIT_CSV_MAP.get(pd_id)
+    if csv_seller:
+        detail = {"seller": csv_seller, "source": "csv"}
+        _DETAIL_CACHE[link] = detail
+        print(f"[mustit-csv] hit pd_id={pd_id} seller={csv_seller}")
+        return detail
 
     # ── Circuit Breaker: cooldown 중이면 즉시 포기 ──────────────────────
     now = time.time()
@@ -3102,6 +3157,77 @@ def api_debug_mustit_search():
     with open(_out, "w", encoding="utf-8") as _f:
         json.dump(result, _f, ensure_ascii=False, indent=2)
     return jsonify(result)
+
+
+@app.route("/api/mustit_csv/upload", methods=["POST"])
+def api_mustit_csv_upload():
+    """머스트잇 판매자 CSV 업로드.
+    multipart/form-data 파일 업로드 또는 raw text body 모두 지원.
+    CSV 컬럼: mallProductId, sellerId (한/영 혼용 가능)
+    """
+    global _MUSTIT_CSV_MAP
+    try:
+        # 파일 업로드 방식
+        if "file" in request.files:
+            f = request.files["file"]
+            raw = f.read()
+            text = raw.decode("utf-8-sig", errors="replace")
+        else:
+            # raw text/csv body
+            text = request.get_data(as_text=True)
+
+        if not text.strip():
+            return jsonify({"ok": False, "error": "빈 파일입니다."}), 400
+
+        mapping = _parse_mustit_csv(text)
+        if not mapping:
+            return jsonify({"ok": False, "error": "유효한 데이터가 없습니다. 컬럼명을 확인하세요 (mallProductId, sellerId)."}), 400
+
+        with _MUSTIT_CSV_LOCK:
+            _MUSTIT_CSV_MAP = mapping
+
+        # 디스크에 저장 (서버 재시작 후에도 유지)
+        with open(_MUSTIT_CSV_PATH, "w", encoding="utf-8-sig", newline="") as fp:
+            fp.write("mallProductId,sellerId\n")
+            for pid, sid in mapping.items():
+                fp.write(f"{pid},{sid}\n")
+
+        # detail 캐시 초기화 (CSV 갱신 반영)
+        _DETAIL_CACHE.clear()
+        print(f"[mustit-csv] 업로드 완료: {len(mapping)}건")
+        return jsonify({"ok": True, "count": len(mapping), "sample": dict(list(mapping.items())[:3])})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/mustit_csv/status")
+def api_mustit_csv_status():
+    """현재 로드된 CSV 맵 상태 반환."""
+    with _MUSTIT_CSV_LOCK:
+        count = len(_MUSTIT_CSV_MAP)
+        sample = dict(list(_MUSTIT_CSV_MAP.items())[:5])
+    return jsonify({
+        "loaded": count > 0,
+        "count": count,
+        "sample": sample,
+        "file_exists": os.path.exists(_MUSTIT_CSV_PATH),
+    })
+
+
+@app.route("/api/mustit_csv/download")
+def api_mustit_csv_download():
+    """현재 로드된 CSV 맵을 CSV 파일로 다운로드."""
+    with _MUSTIT_CSV_LOCK:
+        mapping = dict(_MUSTIT_CSV_MAP)
+    lines = ["mallProductId,sellerId"]
+    for pid, sid in mapping.items():
+        lines.append(f"{pid},{sid}")
+    csv_text = "\n".join(lines)
+    return app.response_class(
+        response=csv_text.encode("utf-8-sig"),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=mustit_sellers.csv"},
+    )
 
 
 @app.route("/api/debug/mustit_live")
