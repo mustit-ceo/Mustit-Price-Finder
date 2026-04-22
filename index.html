@@ -891,6 +891,8 @@ function toggleRank(){
 }
 
 function renderRank(byPlat){
+  // config가 이미 로드됐는데 cfgNormSet이 비어있으면 재빌드
+  if(cfgNormSet.size === 0 && Object.keys(lastCfg).length > 0) cfgNormSet = buildCfgNormSet(lastCfg);
   const tb=document.getElementById('rankbody');
   tb.innerHTML='';
   const cols = PLATS_RANK.map(p => (byPlat && byPlat[p]) ? byPlat[p] : []);
@@ -2088,7 +2090,7 @@ function downloadBulkExcel(){
 
 refreshKey();
 // 초기 config 로드 → renderRank 색상 적용
-api('/api/config').then(c=>{ lastCfg=c; cfgNormSet=buildCfgNormSet(c); }).catch(()=>{});
+api('/api/config').then(c=>{ lastCfg=c; cfgNormSet=buildCfgNormSet(c); if(lastData) renderRank(lastData.by_platform||{}); }).catch(()=>{});
 
 /* ── 머스트잇 노출순위 조회 Excel ── */
 function _downloadExposureExcel(){
