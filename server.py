@@ -2103,14 +2103,14 @@ def api_enrich():
             for plat, sid in smap.items():
                 sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
-                found = None
-                for it in by_plat.get(plat, []):
-                    s = (it.get("seller") or "").strip()
-                    m = (it.get("mallName") or "").strip()
-                    if (s and sid.lower() in s.lower()) or (m and sid.lower() in m.lower()):
-                        print(f"[DEBUG match] label={display_label} plat={plat} sid={repr(sid)} seller={repr(s)} mallName={repr(m)}")
-                        found = it
-                        break
+                sid_lower = sid.lower()
+                def _word_match(text):
+                    """공백 기준 토큰 중 sid와 완전 일치하는 것이 있으면 True"""
+                    tokens = re.split(r'\s+', (text or "").strip().lower())
+                    return sid_lower in tokens
+                found = next((it for it in by_plat.get(plat, [])
+                              if _word_match(it.get("seller") or "")
+                              or _word_match(it.get("mallName") or "")), None)
                 row["cells"][plat] = found
             rows.append(row)
         timing = {
