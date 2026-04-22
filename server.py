@@ -490,6 +490,30 @@ def _get_pw_browser():
     return _PW_BROWSER
 
 
+def _pw_wait_challenge(page, timeout_ms=25000):
+    """Cloudflare JS 챌린지('Human Verification' 타이틀)가 자동 해결될 때까지 기다린다.
+    챌린지가 풀리면 Cloudflare가 알아서 원래 페이지로 리다이렉트한다.
+    """
+    try:
+        title = page.title()
+        if "Human Verification" not in title and "Just a moment" not in title:
+            return  # 챌린지 없음
+        print(f"[mustit-pw] CF challenge detected (title='{title}'), waiting up to {timeout_ms}ms ...")
+        page.wait_for_function(
+            """() => {
+                const t = document.title;
+                return t !== 'Human Verification' && t !== 'Just a moment...';
+            }""",
+            timeout=timeout_ms,
+        )
+        # 챌린지 통과 후 DOM 안정화 대기
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        page.wait_for_timeout(1000)
+        print(f"[mustit-pw] CF challenge resolved → title='{page.title()}' url={page.url}")
+    except Exception as e:
+        print(f"[mustit-pw] CF challenge wait error (will proceed anyway): {e}")
+
+
 def _get_pw_context():
     """쿠키가 유지되는 공유 BrowserContext 반환.
     최초 호출 시 m.web.mustit.co.kr 홈을 방문해 Cloudflare 세션 쿠키를 획득한다.
@@ -510,17 +534,19 @@ def _get_pw_context():
                 viewport={"width": 390, "height": 844},   # 모바일 사이즈
                 extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
             )
-            # 이미지·폰트·CSS 차단 (속도 향상)
+            # 이미지·폰트만 차단 (CSS·JS는 Cloudflare 챌린지에 필요할 수 있어 허용)
             ctx.route(
-                "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf,css}",
+                "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf}",
                 lambda r: r.abort(),
             )
-            # 홈페이지 워밍업 → Cloudflare 세션 쿠키 획득
+            # 홈페이지 워밍업 → Cloudflare 챌린지 통과 + cf_clearance 쿠키 획득
             warmup = ctx.new_page()
             print("[mustit-pw] warming up context on m.web.mustit.co.kr ...")
             warmup.goto("https://m.web.mustit.co.kr/", wait_until="domcontentloaded", timeout=30000)
-            warmup.wait_for_timeout(2000)
-            print(f"[mustit-pw] warmup done, cookies={len(ctx.cookies())}")
+            _pw_wait_challenge(warmup, timeout_ms=30000)
+            cookies_after = ctx.cookies()
+            cf_cookies = [c["name"] for c in cookies_after if "cf_" in c["name"].lower()]
+            print(f"[mustit-pw] warmup done, total_cookies={len(cookies_after)}, cf_cookies={cf_cookies}")
             warmup.close()
             _PW_CTX = ctx
         except Exception as e:
@@ -542,7 +568,9 @@ def _fetch_mustit_html_playwright(pd_id):
     try:
         page = ctx.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=40000)
-        page.wait_for_timeout(2000)  # RSC push 스크립트 로딩 대기
+        # Cloudflare JS 챌린지가 발동됐으면 해결될 때까지 대기
+        _pw_wait_challenge(page, timeout_ms=30000)
+        page.wait_for_timeout(1500)  # RSC push 스크립트 로딩 대기
         final_url = page.url
         html = page.content()
         page.close()
@@ -551,9 +579,12 @@ def _fetch_mustit_html_playwright(pd_id):
             print(f"[mustit-pw] OK pd_id={pd_id} final_url={final_url} len={len(html)}")
             return html
 
-        # 홈으로 리다이렉트됐으면 컨텍스트 초기화 후 재시도 1회
-        if "m.web.mustit.co.kr/" == final_url.rstrip("/").split("//")[-1] or pd_id not in final_url:
-            print(f"[mustit-pw] redirected to {final_url}, resetting context...")
+        # 여전히 챌린지 또는 홈으로 리다이렉트된 경우 → 컨텍스트 초기화 후 재시도
+        still_challenge = "Human Verification" in html or "Just a moment" in html
+        redirected_home = pd_id not in final_url
+        if still_challenge or redirected_home:
+            reason = "challenge" if still_challenge else f"redirect→{final_url}"
+            print(f"[mustit-pw] {reason}, resetting context and retrying...")
             try:
                 ctx.close()
             except Exception:
@@ -564,7 +595,8 @@ def _fetch_mustit_html_playwright(pd_id):
                 return None
             page2 = ctx2.new_page()
             page2.goto(url, wait_until="domcontentloaded", timeout=40000)
-            page2.wait_for_timeout(2000)
+            _pw_wait_challenge(page2, timeout_ms=30000)
+            page2.wait_for_timeout(1500)
             html2 = page2.content()
             page2.close()
             if "sellerId" in html2:
@@ -3057,7 +3089,7 @@ def api_debug_mustit_live():
     result["pw_launch_error"] = pw_launch_error
     result["pw_ctx_alive"] = _PW_CTX is not None
 
-    # Playwright raw 테스트 — 공유 컨텍스트(쿠키 유지) 방식
+    # Playwright raw 테스트 — 공유 컨텍스트(쿠키 유지) + CF 챌린지 대기
     try:
         ctx = _get_pw_context()
         if ctx:
@@ -3065,13 +3097,15 @@ def api_debug_mustit_live():
             page = ctx.new_page()
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=40000)
-                page.wait_for_timeout(2000)
+                _pw_wait_challenge(page, timeout_ms=30000)
+                page.wait_for_timeout(1500)
                 pw_html = page.content()
                 final_pw_url = page.url
             except Exception as ge:
                 pw_html = ""
                 final_pw_url = f"ERROR: {ge}"
             page.close()
+            cf_names = [c["name"] for c in ctx.cookies() if "cf_" in c["name"].lower()]
             seller_idx = pw_html.find('sellerId')
             result["playwright"] = {
                 "final_url": final_pw_url,
@@ -3082,6 +3116,7 @@ def api_debug_mustit_live():
                 "has_verification": "Human Verification" in pw_html,
                 "has_next_f": "__next_f" in pw_html,
                 "cookie_count": len(ctx.cookies()),
+                "cf_cookies": cf_names,
             }
         else:
             result["playwright"] = {"error": "context is None"}
