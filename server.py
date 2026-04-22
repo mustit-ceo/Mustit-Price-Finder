@@ -461,6 +461,9 @@ _PW_PLAYWRIGHT = None
 _PW_BROWSER    = None
 _PW_BROWSER_LOCK = threading.Lock()
 
+_PW_CTX        = None   # 쿠키가 살아있는 공유 브라우저 컨텍스트
+_PW_CTX_LOCK   = threading.Lock()
+
 def _get_pw_browser():
     """Playwright Chromium 싱글톤 반환. 실패 시 None."""
     global _PW_PLAYWRIGHT, _PW_BROWSER
@@ -487,36 +490,100 @@ def _get_pw_browser():
     return _PW_BROWSER
 
 
-def _fetch_mustit_html_playwright(pd_id):
-    """Playwright로 머스트잇 상품 상세 HTML 반환 (Cloudflare JS 챌린지 통과)."""
+def _get_pw_context():
+    """쿠키가 유지되는 공유 BrowserContext 반환.
+    최초 호출 시 m.web.mustit.co.kr 홈을 방문해 Cloudflare 세션 쿠키를 획득한다.
+    """
+    global _PW_CTX
+    if _PW_CTX is not None:
+        return _PW_CTX
     browser = _get_pw_browser()
     if not browser:
         return None
-    url = f"https://mustit.co.kr/product_detail/{pd_id}"
+    with _PW_CTX_LOCK:
+        if _PW_CTX is not None:
+            return _PW_CTX
+        try:
+            ctx = browser.new_context(
+                locale="ko-KR",
+                user_agent=_UA,
+                viewport={"width": 390, "height": 844},   # 모바일 사이즈
+                extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
+            )
+            # 이미지·폰트·CSS 차단 (속도 향상)
+            ctx.route(
+                "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf,css}",
+                lambda r: r.abort(),
+            )
+            # 홈페이지 워밍업 → Cloudflare 세션 쿠키 획득
+            warmup = ctx.new_page()
+            print("[mustit-pw] warming up context on m.web.mustit.co.kr ...")
+            warmup.goto("https://m.web.mustit.co.kr/", wait_until="domcontentloaded", timeout=30000)
+            warmup.wait_for_timeout(2000)
+            print(f"[mustit-pw] warmup done, cookies={len(ctx.cookies())}")
+            warmup.close()
+            _PW_CTX = ctx
+        except Exception as e:
+            print(f"[mustit-pw] context init failed: {e}")
+    return _PW_CTX
+
+
+def _fetch_mustit_html_playwright(pd_id):
+    """Playwright로 머스트잇 상품 상세 HTML 반환 (Cloudflare JS 챌린지 통과).
+    공유 컨텍스트를 사용해 세션 쿠키를 유지한다.
+    """
+    global _PW_CTX
+    ctx = _get_pw_context()
+    if not ctx:
+        return None
+    # 모바일 상품 상세 URL을 직접 사용
+    url = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+    page = None
     try:
-        ctx = browser.new_context(
-            locale="ko-KR",
-            user_agent=_UA,
-            viewport={"width": 1280, "height": 800},
-            extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
-        )
         page = ctx.new_page()
-        # 이미지·폰트 차단 → 속도 향상 (RSC inline script는 영향 없음)
-        page.route(
-            "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf,css}",
-            lambda r: r.abort(),
-        )
-        page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(1500)  # RSC push 스크립트 로딩 대기
+        page.goto(url, wait_until="domcontentloaded", timeout=40000)
+        page.wait_for_timeout(2000)  # RSC push 스크립트 로딩 대기
+        final_url = page.url
         html = page.content()
-        ctx.close()
+        page.close()
+
         if "sellerId" in html:
-            print(f"[mustit-pw] OK pd_id={pd_id} len={len(html)}")
+            print(f"[mustit-pw] OK pd_id={pd_id} final_url={final_url} len={len(html)}")
             return html
-        print(f"[mustit-pw] no sellerId pd_id={pd_id} len={len(html)} head={html[:200]}")
+
+        # 홈으로 리다이렉트됐으면 컨텍스트 초기화 후 재시도 1회
+        if "m.web.mustit.co.kr/" == final_url.rstrip("/").split("//")[-1] or pd_id not in final_url:
+            print(f"[mustit-pw] redirected to {final_url}, resetting context...")
+            try:
+                ctx.close()
+            except Exception:
+                pass
+            _PW_CTX = None
+            ctx2 = _get_pw_context()
+            if not ctx2:
+                return None
+            page2 = ctx2.new_page()
+            page2.goto(url, wait_until="domcontentloaded", timeout=40000)
+            page2.wait_for_timeout(2000)
+            html2 = page2.content()
+            page2.close()
+            if "sellerId" in html2:
+                print(f"[mustit-pw] OK (retry) pd_id={pd_id} len={len(html2)}")
+                return html2
+            print(f"[mustit-pw] no sellerId after retry pd_id={pd_id} head={html2[:300]}")
+            return None
+
+        print(f"[mustit-pw] no sellerId pd_id={pd_id} final_url={final_url} len={len(html)} head={html[:200]}")
         return None
     except Exception as e:
+        if page:
+            try:
+                page.close()
+            except Exception:
+                pass
         print(f"[mustit-pw] error pd_id={pd_id}: {e}")
+        # 컨텍스트가 깨진 경우 초기화
+        _PW_CTX = None
         return None
 
 
@@ -2988,27 +3055,23 @@ def api_debug_mustit_live():
         pw_launch_error = str(e)
     result["pw_browser_alive"] = _PW_BROWSER is not None
     result["pw_launch_error"] = pw_launch_error
+    result["pw_ctx_alive"] = _PW_CTX is not None
 
-    # Playwright raw 테스트 (sellerId 체크 없이 실제 HTML 확인)
+    # Playwright raw 테스트 — 공유 컨텍스트(쿠키 유지) 방식
     try:
-        browser = _get_pw_browser()
-        if browser:
-            url = f"https://mustit.co.kr/product_detail/{pd_id}"
-            ctx = browser.new_context(
-                locale="ko-KR", user_agent=_UA,
-                viewport={"width": 1280, "height": 800},
-                extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
-            )
+        ctx = _get_pw_context()
+        if ctx:
+            url = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
             page = ctx.new_page()
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.goto(url, wait_until="domcontentloaded", timeout=40000)
                 page.wait_for_timeout(2000)
                 pw_html = page.content()
                 final_pw_url = page.url
             except Exception as ge:
                 pw_html = ""
                 final_pw_url = f"ERROR: {ge}"
-            ctx.close()
+            page.close()
             seller_idx = pw_html.find('sellerId')
             result["playwright"] = {
                 "final_url": final_pw_url,
@@ -3018,9 +3081,10 @@ def api_debug_mustit_live():
                 "html_head_300": pw_html[:300],
                 "has_verification": "Human Verification" in pw_html,
                 "has_next_f": "__next_f" in pw_html,
+                "cookie_count": len(ctx.cookies()),
             }
         else:
-            result["playwright"] = {"error": "browser is None"}
+            result["playwright"] = {"error": "context is None"}
     except Exception as e:
         result["playwright"] = {"error": str(e)}
 
