@@ -2847,6 +2847,61 @@ def api_debug_mustit_search():
     return jsonify(result)
 
 
+@app.route("/api/mustit_exposure")
+def api_mustit_exposure():
+    """머스트잇 노출순위 조회: 가격순 상위 10개 머스트잇 상품의 네이버 랭킹순 노출순위 반환."""
+    query = request.args.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "query 파라미터가 필요합니다."}), 400
+    try:
+        # 1. 네이버랭킹순(sim) 호출 → 링크별 노출순위 맵
+        sim_items = call_api(query, max_items=200, sort="sim")
+        rank_map = {}
+        for idx, it in enumerate(sim_items):
+            link = (it.get("link") or "").strip()
+            if link and link not in rank_map:
+                rank_map[link] = idx + 1
+
+        # 2. 가격순(asc) 호출 → 머스트잇만 필터, 상위 10개
+        asc_items = call_api(query, max_items=300, sort="asc")
+        results = []
+        seen = set()
+        for item in asc_items:
+            if detect_platform(item) != "머스트잇":
+                continue
+            link = (item.get("link") or "").strip()
+            if not link or link in seen:
+                continue
+            seen.add(link)
+            # 품번: mustit URL에서 product_detail ID 추출
+            pd_m = re.search(r'/product[_-]?detail/(\d+)', link)
+            if not pd_m:
+                pd_m = re.search(r'/(\d{5,})', link)
+            product_no = pd_m.group(1) if pd_m else item.get("mallProductId", "")
+            price_str = item.get("lprice", "0")
+            price = int(price_str) if price_str.isdigit() else 0
+            if price == 0:
+                continue
+            naver_rank = rank_map.get(link)
+            results.append({
+                "product_no": product_no,
+                "name": strip_html(item.get("title", "")),
+                "price": price,
+                "naver_rank": naver_rank,
+                "link": link,
+            })
+            if len(results) >= 10:
+                break
+        return jsonify({
+            "query": query,
+            "items": results,
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"조회 실패: {str(e)}"}), 500
+
+
 @app.route("/api/restart", methods=["POST", "GET"])
 def api_restart():
     """새 python 프로세스를 띄운 뒤 현재 프로세스를 종료.
