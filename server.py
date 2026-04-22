@@ -3326,13 +3326,10 @@ def api_mustit_exposure():
             product_no = pd_m.group(1) if pd_m else item.get("mallProductId", "")
             price_str = item.get("lprice", "0")
             price = int(price_str) if (price_str or "").isdigit() else 0
-            rc_str = str(item.get("reviewCount", "0") or "0")
-            review_count = int(rc_str) if rc_str.isdigit() else 0
             results.append({
                 "product_no": product_no,
                 "name": strip_html(item.get("title", "")),
                 "price": price,
-                "review_count": review_count,
                 "naver_rank": rank_map.get(link),
                 "link": link,
             })

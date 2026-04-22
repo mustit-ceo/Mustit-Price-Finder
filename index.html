@@ -1691,34 +1691,29 @@ function _downloadExposureExcel(){
   if(!_bmResults.length) return;
   const WB = XLSX.utils.book_new();
 
-  // 헤더: 품번(A) | 리뷰수 1~10 (B~K) | 순위 1~10 (L~U)
-  // Row1: '품번' | '리뷰수'(B~K 병합) | '순위'(L~U 병합)
-  // Row2: ''     | 1~10               | 1~10
-  const h1 = ['품번', '리뷰수','','','','','','','','','', '순위','','','','','','','','',''];
-  const h2 = ['', 1,2,3,4,5,6,7,8,9,10, 1,2,3,4,5,6,7,8,9,10];
+  // 헤더: 품번(A) | 순위 1~10 (B~K)
+  // Row1: '품번' | '순위'(B~K 병합)
+  // Row2: ''     | 1~10
+  const h1 = ['품번', '순위','','','','','','','','',''];
+  const h2 = ['', 1,2,3,4,5,6,7,8,9,10];
   const merges = [
-    {s:{r:0,c:0},  e:{r:1,c:0}},   // 품번 세로 병합
-    {s:{r:0,c:1},  e:{r:0,c:10}},  // 리뷰수 가로 병합
-    {s:{r:0,c:11}, e:{r:0,c:20}},  // 순위 가로 병합
+    {s:{r:0,c:0}, e:{r:1,c:0}},   // 품번 세로 병합
+    {s:{r:0,c:1}, e:{r:0,c:10}},  // 순위 가로 병합
   ];
 
   const aoa = [h1, h2];
   _bmResults.forEach(r=>{
     const items = r.exposure?.items || [];
-    const reviewCols = Array.from({length:10}, (_,i) => {
-      const it = items[i];
-      return (it && it.review_count != null) ? it.review_count : '';
-    });
     const rankCols = Array.from({length:10}, (_,i) => {
       const it = items[i];
       return (it && it.naver_rank != null) ? it.naver_rank : '';
     });
-    aoa.push([r.query, ...reviewCols, ...rankCols]);
+    aoa.push([r.query, ...rankCols]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges'] = merges;
-  ws['!cols'] = [{wch:20}, ...Array(20).fill({wch:7})];
+  ws['!cols'] = [{wch:20}, ...Array(10).fill({wch:7})];
   XLSX.utils.book_append_sheet(WB, ws, '머스트잇 노출순위');
 
   const d = new Date();
