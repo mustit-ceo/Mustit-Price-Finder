@@ -412,65 +412,124 @@ _UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 _SELLER_CACHE = {}  # link → seller_id (세션 내 재사용)
 _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
 
-# ── 머스트잇 CSV 판매자 맵 (mallProductId → sellerId) ─────────────────────────
-# CSV 업로드로 갱신. 서버 재시작 시 디스크에서 자동 로드.
+# ── 머스트잇 CSV 판매자 맵 (SQLite 기반, 300만 건 대용량 대응) ────────────────
+import sqlite3 as _sqlite3
 import threading as _csv_threading
-_MUSTIT_CSV_MAP: dict = {}          # { "121340554": "ARTEMOA", ... }
-_MUSTIT_CSV_LOCK = _csv_threading.Lock()
-_MUSTIT_CSV_PATH = os.path.join(BASE_DIR, "mustit_sellers.csv")
 
-def _load_mustit_csv_from_disk():
-    """서버 기동 시 디스크의 CSV 파일을 메모리에 로드."""
-    global _MUSTIT_CSV_MAP
-    if not os.path.exists(_MUSTIT_CSV_PATH):
-        return
+_MUSTIT_DB_PATH  = os.path.join(BASE_DIR, "mustit_sellers.db")
+_MUSTIT_CSV_PATH = os.path.join(BASE_DIR, "mustit_sellers.csv")  # 하위호환 경로
+_MUSTIT_DB_LOCK  = _csv_threading.Lock()
+_MUSTIT_DB_COUNT = 0   # 현재 로드된 건수 (상태 표시용)
+
+_ID_COLS   = {"mallProductId", "mall_product_id", "상품번호", "product_id", "pd_id", "id"}
+_SELL_COLS = {"sellerId", "seller_id", "판매자ID", "판매자아이디", "seller"}
+
+def _get_db() -> _sqlite3.Connection:
+    """SQLite 커넥션 반환 (WAL 모드, 읽기 최적화)."""
+    con = _sqlite3.connect(_MUSTIT_DB_PATH, check_same_thread=False, timeout=30)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA synchronous=NORMAL")
+    con.execute("PRAGMA cache_size=-32000")   # 32MB 페이지 캐시
+    return con
+
+def _init_db():
+    """테이블 초기화."""
+    with _get_db() as con:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS seller_map (
+                product_id TEXT PRIMARY KEY,
+                seller_id  TEXT NOT NULL
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_pid ON seller_map(product_id)")
+
+def _db_count() -> int:
     try:
-        with open(_MUSTIT_CSV_PATH, "r", encoding="utf-8-sig") as f:
-            text = f.read()
-        mapping = _parse_mustit_csv(text)
-        with _MUSTIT_CSV_LOCK:
-            _MUSTIT_CSV_MAP = mapping
-        print(f"[mustit-csv] 디스크에서 로드 완료: {len(mapping)}건")
-    except Exception as e:
-        print(f"[mustit-csv] 디스크 로드 실패: {e}")
+        with _get_db() as con:
+            return con.execute("SELECT COUNT(*) FROM seller_map").fetchone()[0]
+    except Exception:
+        return 0
 
-def _parse_mustit_csv(text: str) -> dict:
-    """CSV 텍스트 → {mallProductId: sellerId} 딕셔너리.
-    컬럼명은 유연하게 인식 (한/영 모두 지원, BOM 자동 제거).
-    300만 건 대용량 처리를 위해 인덱스 기반 파싱 사용.
-    """
-    import csv, io
-    result = {}
-    # BOM 명시적 제거
-    text = text.lstrip("\ufeff").strip()
-
-    _ID_COLS    = {"mallProductId", "mall_product_id", "상품번호", "product_id", "pd_id", "id"}
-    _SELL_COLS  = {"sellerId", "seller_id", "판매자ID", "판매자아이디", "seller"}
-
-    reader = csv.reader(io.StringIO(text))
+def _lookup_seller_db(pid: str) -> str | None:
+    """SQLite에서 product_id → seller_id 조회."""
     try:
-        header = [h.lstrip("\ufeff").strip() for h in next(reader)]
-    except StopIteration:
-        return result
+        with _get_db() as con:
+            row = con.execute(
+                "SELECT seller_id FROM seller_map WHERE product_id=?", (pid,)
+            ).fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
 
-    # 컬럼 인덱스 사전 결정
-    id_idx = next((i for i, h in enumerate(header) if h in _ID_COLS), None)
-    sl_idx = next((i for i, h in enumerate(header) if h in _SELL_COLS), None)
+def _import_csv_to_db(stream, encoding="utf-8-sig") -> int:
+    """CSV 스트림을 SQLite에 벌크 import. 기존 데이터 전체 교체."""
+    import csv, io as _io
+    _ID_COLS_   = _ID_COLS
+    _SELL_COLS_ = _SELL_COLS
+
+    # 헤더 파싱
+    first_line = stream.readline()
+    if isinstance(first_line, bytes):
+        first_line = first_line.decode(encoding, errors="replace")
+    first_line = first_line.lstrip("\ufeff")
+    header = [h.strip() for h in first_line.rstrip("\r\n").split(",")]
+    if len(header) == 1:   # 탭 구분일 수도 있음
+        header = [h.strip() for h in first_line.rstrip("\r\n").split("\t")]
+
+    id_idx = next((i for i, h in enumerate(header) if h in _ID_COLS_), None)
+    sl_idx = next((i for i, h in enumerate(header) if h in _SELL_COLS_), None)
     if id_idx is None or sl_idx is None:
-        return result
+        raise ValueError(f"필수 컬럼 없음 (헤더: {header}). 상품번호/판매자ID 컬럼 필요.")
 
-    for row in reader:
+    delimiter = "," if len(first_line.split(",")) > 1 else "\t"
+
+    count = 0
+    with _MUSTIT_DB_LOCK:
+        with _get_db() as con:
+            con.execute("DELETE FROM seller_map")
+            batch = []
+            for raw in stream:
+                if isinstance(raw, bytes):
+                    raw = raw.decode(encoding, errors="replace")
+                cols = raw.rstrip("\r\n").split(delimiter)
+                try:
+                    pid = cols[id_idx].strip()
+                    sid = cols[sl_idx].strip()
+                    if pid and sid:
+                        batch.append((pid, sid))
+                        count += 1
+                        if len(batch) >= 10000:
+                            con.executemany(
+                                "INSERT OR REPLACE INTO seller_map VALUES (?,?)", batch
+                            )
+                            batch.clear()
+                except IndexError:
+                    continue
+            if batch:
+                con.executemany(
+                    "INSERT OR REPLACE INTO seller_map VALUES (?,?)", batch
+                )
+    return count
+
+def _init_mustit_db():
+    """서버 기동 시 DB 초기화 + 기존 CSV → DB 마이그레이션."""
+    global _MUSTIT_DB_COUNT
+    _init_db()
+    cnt = _db_count()
+    if cnt == 0 and os.path.exists(_MUSTIT_CSV_PATH):
+        # 기존 CSV 파일이 있으면 자동 마이그레이션
         try:
-            pid = row[id_idx].strip()
-            sid = row[sl_idx].strip()
-            if pid and sid:
-                result[pid] = sid
-        except IndexError:
-            continue
-    return result
+            print("[mustit-db] 기존 CSV → SQLite 마이그레이션 시작...")
+            with open(_MUSTIT_CSV_PATH, "rb") as f:
+                cnt = _import_csv_to_db(f, encoding="utf-8-sig")
+            print(f"[mustit-db] 마이그레이션 완료: {cnt}건")
+        except Exception as e:
+            print(f"[mustit-db] 마이그레이션 실패: {e}")
+    else:
+        print(f"[mustit-db] DB 로드 완료: {cnt}건")
+    _MUSTIT_DB_COUNT = cnt
 
-# 서버 기동 시 자동 로드
-_load_mustit_csv_from_disk()
+_init_mustit_db()
 _BYPLAT_CACHE = {}  # (query,ref,top_n) → (timestamp, by_plat)
 _BYPLAT_TTL   = 90  # Phase-1 결과 재사용 TTL (초)
 
@@ -1126,14 +1185,13 @@ def _fetch_mustit_detail(link):
     if link in _DETAIL_CACHE:
         return _DETAIL_CACHE[link]
 
-    # ── CSV 맵 조회 (WAF 우회용 정적 매핑) ────────────────────────────────
-    with _MUSTIT_CSV_LOCK:
-        csv_seller = _MUSTIT_CSV_MAP.get(pd_id)
-    if csv_seller:
-        detail = {"seller": csv_seller, "source": "csv"}
-        _DETAIL_CACHE[link] = detail
-        print(f"[mustit-csv] hit pd_id={pd_id} seller={csv_seller}")
-        return detail
+    # ── SQLite 맵 조회 (WAF 우회용 정적 매핑) ──────────────────────────────
+    if pd_id:
+        csv_seller = _lookup_seller_db(pd_id)
+        if csv_seller:
+            detail = {"seller": csv_seller, "source": "csv"}
+            _DETAIL_CACHE[link] = detail
+            return detail
 
     # ── Circuit Breaker: cooldown 중이면 즉시 포기 ──────────────────────
     now = time.time()
@@ -3176,77 +3234,95 @@ def api_debug_mustit_search():
 
 @app.route("/api/mustit_csv/upload", methods=["POST"])
 def api_mustit_csv_upload():
-    """머스트잇 판매자 CSV 업로드.
-    multipart/form-data 파일 업로드 또는 raw text body 모두 지원.
-    CSV 컬럼: mallProductId, sellerId (한/영 혼용 가능)
+    """머스트잇 판매자 CSV 업로드 → SQLite 저장.
+    메모리에 전체 로드하지 않고 스트리밍 방식으로 직접 DB에 기록.
     """
-    global _MUSTIT_CSV_MAP
+    global _MUSTIT_DB_COUNT
     try:
-        # 파일 업로드 방식
         if "file" in request.files:
             f = request.files["file"]
-            raw = f.read()
-            # utf-8-sig 우선 시도 → 실패 시 euc-kr (엑셀 한국어 기본 인코딩)
-            try:
-                text = raw.decode("utf-8-sig")
-            except UnicodeDecodeError:
+            # 인코딩 감지: 첫 4바이트로 BOM 확인
+            header_bytes = f.read(4)
+            f.seek(0)
+            if header_bytes[:3] == b'\xef\xbb\xbf':
+                encoding = "utf-8-sig"
+            elif header_bytes[:2] in (b'\xff\xfe', b'\xfe\xff'):
+                encoding = "utf-16"
+            else:
+                # utf-8 시도 → 실패 시 euc-kr
                 try:
-                    text = raw.decode("euc-kr")
+                    f.read(4096).decode("utf-8"); f.seek(0)
+                    encoding = "utf-8"
                 except UnicodeDecodeError:
-                    text = raw.decode("utf-8", errors="replace")
+                    f.seek(0); encoding = "euc-kr"
+                f.seek(0)
+            count = _import_csv_to_db(f, encoding=encoding)
         else:
-            # raw text/csv body
-            text = request.get_data(as_text=True)
+            import io as _sio
+            raw = request.get_data()
+            if not raw:
+                return jsonify({"ok": False, "error": "빈 파일입니다."}), 400
+            encoding = "utf-8-sig"
+            count = _import_csv_to_db(_sio.BytesIO(raw), encoding=encoding)
 
-        if not text.strip():
-            return jsonify({"ok": False, "error": "빈 파일입니다."}), 400
+        if count == 0:
+            return jsonify({"ok": False, "error": "유효한 데이터가 없습니다. 필수 컬럼: 상품번호, 판매자ID"}), 400
 
-        mapping = _parse_mustit_csv(text)
-        if not mapping:
-            return jsonify({"ok": False, "error": "유효한 데이터가 없습니다. 컬럼명을 확인하세요. (필수 컬럼: 상품번호, 판매자ID)"}), 400
-
-        with _MUSTIT_CSV_LOCK:
-            _MUSTIT_CSV_MAP = mapping
-
-        # 디스크에 저장 (서버 재시작 후에도 유지) - 한국어 헤더로 통일
-        with open(_MUSTIT_CSV_PATH, "w", encoding="utf-8-sig", newline="") as fp:
-            fp.write("상품번호,판매자ID\n")
-            for pid, sid in mapping.items():
-                fp.write(f"{pid},{sid}\n")
-
-        # detail 캐시 초기화 (CSV 갱신 반영)
+        _MUSTIT_DB_COUNT = count
         _DETAIL_CACHE.clear()
-        print(f"[mustit-csv] 업로드 완료: {len(mapping)}건")
-        return jsonify({"ok": True, "count": len(mapping), "sample": dict(list(mapping.items())[:3])})
+        print(f"[mustit-db] 업로드 완료: {count}건")
+
+        # 샘플 3건
+        with _get_db() as con:
+            sample = {r[0]: r[1] for r in con.execute(
+                "SELECT product_id, seller_id FROM seller_map LIMIT 3"
+            ).fetchall()}
+
+        return jsonify({"ok": True, "count": count, "sample": sample})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
+        import traceback; traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/mustit_csv/status")
 def api_mustit_csv_status():
-    """현재 로드된 CSV 맵 상태 반환."""
-    with _MUSTIT_CSV_LOCK:
-        count = len(_MUSTIT_CSV_MAP)
-        sample = dict(list(_MUSTIT_CSV_MAP.items())[:5])
+    """현재 SQLite DB 상태 반환."""
+    count = _db_count()
+    try:
+        with _get_db() as con:
+            sample = {r[0]: r[1] for r in con.execute(
+                "SELECT product_id, seller_id FROM seller_map LIMIT 5"
+            ).fetchall()}
+    except Exception:
+        sample = {}
     return jsonify({
         "loaded": count > 0,
         "count": count,
         "sample": sample,
-        "file_exists": os.path.exists(_MUSTIT_CSV_PATH),
+        "file_exists": os.path.exists(_MUSTIT_DB_PATH),
     })
 
 
 @app.route("/api/mustit_csv/download")
 def api_mustit_csv_download():
-    """현재 로드된 CSV 맵을 CSV 파일로 다운로드."""
-    with _MUSTIT_CSV_LOCK:
-        mapping = dict(_MUSTIT_CSV_MAP)
-    lines = ["상품번호,판매자ID"]
-    for pid, sid in mapping.items():
-        lines.append(f"{pid},{sid}")
-    csv_text = "\n".join(lines)
+    """SQLite 데이터를 CSV로 다운로드 (스트리밍)."""
+    import io as _sio
+
+    def generate():
+        yield "상품번호,판매자ID\r\n".encode("utf-8-sig")
+        with _get_db() as con:
+            cur = con.execute("SELECT product_id, seller_id FROM seller_map")
+            while True:
+                rows = cur.fetchmany(5000)
+                if not rows:
+                    break
+                chunk = "".join(f"{r[0]},{r[1]}\r\n" for r in rows)
+                yield chunk.encode("utf-8")
+
     return app.response_class(
-        response=csv_text.encode("utf-8-sig"),
+        generate(),
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=mustit_sellers.csv"},
     )
