@@ -3182,43 +3182,70 @@ def api_debug_mustit_live():
 
     # ── Mustit 내부 REST API 엔드포인트 탐색 ──────────────────────────
     # 앱/Next.js가 호출하는 JSON API는 CF 보호가 다를 수 있음
+    # ── URL 탐색: /v2/ 이전 구 경로 + 데스크톱 사이트 (CF 미차단 확인) ──────
+    # mustit.co.kr 데스크톱: 500 반환 → CF 차단 아님, 서버 존재
+    # m.web.mustit.co.kr/api/*: 404 Nuxt.js HTML → CF 차단 아님
+    # m.web.mustit.co.kr/v2/m/...: 405 → CF 차단
+    _DESKTOP_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/124.0.0.0 Safari/537.36")
     api_candidates = [
-        f"https://mustit.co.kr/api/v1/goods/{pd_id}",
-        f"https://mustit.co.kr/api/v2/goods/{pd_id}",
-        f"https://mustit.co.kr/api/goods/{pd_id}",
-        f"https://m.web.mustit.co.kr/api/v1/goods/{pd_id}",
-        f"https://m.web.mustit.co.kr/api/v2/goods/{pd_id}",
-        f"https://m.web.mustit.co.kr/api/product/{pd_id}",
-        # RSC 전용 요청 (Next.js App Router)
-        f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
+        # ① 데스크톱 사이트 (desktop UA → 모바일 리다이렉트 방지)
+        ("desktop_product",
+         f"https://mustit.co.kr/product_detail/{pd_id}",
+         {"User-Agent": _DESKTOP_UA, "Accept-Language": "ko-KR,ko;q=0.9",
+          "Accept": "text/html"}, False),
+        # ② 구 모바일 경로 (/v2/ 없이)
+        ("old_mobile_v1",
+         f"https://m.web.mustit.co.kr/m/product/product_detail/{pd_id}",
+         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
+        ("old_mobile_v2",
+         f"https://m.web.mustit.co.kr/product/product_detail/{pd_id}",
+         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
+        ("old_mobile_goods",
+         f"https://m.web.mustit.co.kr/goods/{pd_id}",
+         {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9"}, False),
+        # ③ Nuxt.js 구 API 패턴 (m.web.mustit.co.kr/api/* 는 CF 차단 없음)
+        ("nuxt_api_detail",
+         f"https://m.web.mustit.co.kr/api/goods/detail/{pd_id}",
+         {"User-Agent": _UA, "Accept": "application/json"}, False),
+        ("nuxt_api_v3",
+         f"https://m.web.mustit.co.kr/api/v3/goods/{pd_id}",
+         {"User-Agent": _UA, "Accept": "application/json"}, False),
+        ("nuxt_api_product_detail",
+         f"https://m.web.mustit.co.kr/api/product/detail/{pd_id}",
+         {"User-Agent": _UA, "Accept": "application/json"}, False),
+        # ④ 데스크톱 구 API
+        ("desktop_api_detail",
+         f"https://mustit.co.kr/api/goods/detail/{pd_id}",
+         {"User-Agent": _DESKTOP_UA, "Accept": "application/json"}, False),
+        ("desktop_goods_direct",
+         f"https://mustit.co.kr/goods/{pd_id}",
+         {"User-Agent": _DESKTOP_UA, "Accept": "text/html"}, False),
+        # ⑤ Next.js RSC 헤더 (v2 경로이지만 RSC 요청으로 CF 규칙이 다를 수 있음)
+        ("rsc_fetch",
+         f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
+         {"User-Agent": _UA, "RSC": "1", "Accept": "text/x-component",
+          "Next-Router-State-Tree": "%5B%22%22%2C%7B%7D%2Cnull%2Cnull%2Ctrue%5D"}, False),
     ]
-    api_hdrs_base = {
-        "User-Agent": _UA,
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-        "Referer": "https://m.web.mustit.co.kr/",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-    # RSC 요청용 헤더 변형
-    rsc_hdrs = {**api_hdrs_base, "RSC": "1", "Accept": "text/x-component"}
 
     api_results = []
     sess2 = _get_mustit_session()
-    for i, url in enumerate(api_candidates):
+    for label, url, hdrs, follow in api_candidates:
         try:
-            h = rsc_hdrs if i == len(api_candidates) - 1 else api_hdrs_base
             fn = sess2.get if sess2 else requests.get
-            r2 = fn(url, timeout=8, headers=h, allow_redirects=False)
+            r2 = fn(url, timeout=10, headers=hdrs, allow_redirects=follow)
             body = r2.text or ""
             api_results.append({
+                "label": label,
                 "url": url,
                 "status": r2.status_code,
                 "len": len(body),
                 "has_sellerId": "sellerId" in body,
-                "head_150": body[:150],
+                "head_200": body[:200],
             })
         except Exception as ex:
-            api_results.append({"url": url, "error": str(ex)})
+            api_results.append({"label": label, "url": url, "error": str(ex)})
     result["api_probe"] = api_results
 
     return jsonify(result)
