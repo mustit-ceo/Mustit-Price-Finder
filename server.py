@@ -2101,10 +2101,13 @@ def api_enrich():
             display_label = (smap.get("머스트잇") or "").strip() or label
             row = {"label": display_label, "cells": {}}
             for plat, sid in smap.items():
+                sid = (sid or "").strip()
                 if not sid: row["cells"][plat] = None; continue
                 found = next((it for it in by_plat.get(plat,[])
-                              if sid.lower() == (it.get("seller") or "").lower()
-                              or sid.lower() == (it.get("mallName") or "").lower()), None)
+                              if (it.get("seller") or "").strip()
+                              and sid.lower() in (it.get("seller") or "").lower()
+                              or (it.get("mallName") or "").strip()
+                              and sid.lower() in (it.get("mallName") or "").lower()), None)
                 row["cells"][plat] = found
             rows.append(row)
         timing = {
