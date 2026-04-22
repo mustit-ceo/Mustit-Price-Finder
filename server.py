@@ -2980,6 +2980,15 @@ def api_debug_mustit_live():
     }
 
     # ── Playwright 테스트 ──────────────────────────────────────────────
+    # 브라우저 먼저 기동 시도하여 에러 캡처
+    pw_launch_error = None
+    try:
+        _get_pw_browser()
+    except Exception as e:
+        pw_launch_error = str(e)
+    result["pw_browser_alive"] = _PW_BROWSER is not None
+    result["pw_launch_error"] = pw_launch_error
+
     pw_html = ""
     try:
         pw_html = _fetch_mustit_html_playwright(pd_id) or ""
