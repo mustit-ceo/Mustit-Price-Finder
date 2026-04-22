@@ -297,7 +297,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
     </div>
     <button class="btn" onclick="openSettings()" style="margin-left:auto">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
-      설정
+      판매자 설정
     </button>
     <button class="btn xl" id="dlbtn" onclick="downloadExcel()" style="display:none" title="검색 결과를 Excel로 다운로드">
       <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
@@ -425,7 +425,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L4 6l4 4"/></svg>
       돌아가기
     </button>
-    <div class="logo" style="margin-left:4px">설정</div>
+    <div class="logo" style="margin-left:4px">판매자 설정</div>
     <button class="btn pri" style="margin-left:auto" onclick="saveAll()">저장</button>
   </div>
   <div class="ss">
@@ -446,19 +446,25 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       머스트잇 ID가 같은 행은 기존 데이터를 유지하고 비어있는 칸만 채웁니다.<br>
       새로운 행은 하단에 추가됩니다.
     </div>
-    <div class="cw">
-      <table class="ct">
-        <thead><tr>
-          <th class="cth" style="width:60px">판매자</th>
-          <th class="cth mu">머스트잇</th><th class="cth">트렌비</th>
-          <th class="cth">SSG</th><th class="cth">롯데온</th>
-          <th class="cth">스마트스토어</th>
-          <th class="cth" style="width:34px"></th>
-        </tr></thead>
-        <tbody id="cfgbody"></tbody>
-      </table>
+    <div id="cfg-loading" style="display:none;padding:24px;text-align:center;color:var(--tx3);font-size:12px">
+      <div class="spin" style="display:inline-block;margin-right:6px"></div>
+      판매자 데이터를 불러오는 중입니다…
     </div>
-    <button class="addbtn" onclick="addRow()">+ 판매자 추가</button>
+    <div id="cfg-content">
+      <div class="cw">
+        <table class="ct">
+          <thead><tr>
+            <th class="cth" style="width:60px">판매자</th>
+            <th class="cth mu">머스트잇</th><th class="cth">트렌비</th>
+            <th class="cth">SSG</th><th class="cth">롯데온</th>
+            <th class="cth">스마트스토어</th>
+            <th class="cth" style="width:34px"></th>
+          </tr></thead>
+          <tbody id="cfgbody"></tbody>
+        </table>
+      </div>
+      <button class="addbtn" onclick="addRow()">+ 판매자 추가</button>
+    </div>
   </div>
 </div>
 
@@ -1122,10 +1128,19 @@ function clearDetail(){
 
 /* ── 설정 로드 ── */
 async function loadSettings(){
+  const loading = document.getElementById('cfg-loading');
+  const content = document.getElementById('cfg-content');
+  loading.style.display = 'block';
+  content.style.display = 'none';
   try{
-    const cfg=await api('/api/config');
+    const cfg = await api('/api/config');
     renderCfg(cfg);
-  } catch(e){ toast(e.message); }
+  } catch(e){
+    toast(e.message);
+  } finally{
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  }
 }
 
 /* ── 판매자 Config ── */
