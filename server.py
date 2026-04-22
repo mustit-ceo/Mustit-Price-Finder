@@ -2103,8 +2103,8 @@ def api_enrich():
             for plat, sid in smap.items():
                 if not sid: row["cells"][plat] = None; continue
                 found = next((it for it in by_plat.get(plat,[])
-                              if sid.lower() in (it.get("seller") or "").lower()
-                              or sid.lower() in (it.get("mallName") or "").lower()), None)
+                              if sid.lower() == (it.get("seller") or "").lower()
+                              or sid.lower() == (it.get("mallName") or "").lower()), None)
                 row["cells"][plat] = found
             rows.append(row)
         timing = {
