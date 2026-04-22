@@ -436,21 +436,25 @@ def _load_mustit_csv_from_disk():
 
 def _parse_mustit_csv(text: str) -> dict:
     """CSV 텍스트 → {mallProductId: sellerId} 딕셔너리.
-    컬럼명은 유연하게 인식 (한/영 모두 지원).
+    컬럼명은 유연하게 인식 (한/영 모두 지원, BOM 자동 제거).
     """
     import csv, io
     result = {}
-    reader = csv.DictReader(io.StringIO(text.strip()))
+    # BOM 명시적 제거 (utf-8-sig 디코딩 후에도 남아있을 수 있음)
+    text = text.lstrip("\ufeff").strip()
+    reader = csv.DictReader(io.StringIO(text))
     for row in reader:
-        # mallProductId 컬럼 인식
+        # 키에서도 BOM/공백 제거
+        cleaned = {k.lstrip("\ufeff").strip(): v for k, v in row.items() if k}
+        # mallProductId/상품번호 컬럼 인식
         pd_id = (
-            row.get("mallProductId") or row.get("mall_product_id") or
-            row.get("상품번호") or row.get("product_id") or row.get("pd_id") or ""
+            cleaned.get("mallProductId") or cleaned.get("mall_product_id") or
+            cleaned.get("상품번호") or cleaned.get("product_id") or cleaned.get("pd_id") or ""
         ).strip()
-        # sellerId 컬럼 인식
+        # sellerId/판매자ID 컬럼 인식
         seller = (
-            row.get("sellerId") or row.get("seller_id") or
-            row.get("판매자아이디") or row.get("판매자ID") or row.get("seller") or ""
+            cleaned.get("sellerId") or cleaned.get("seller_id") or
+            cleaned.get("판매자ID") or cleaned.get("판매자아이디") or cleaned.get("seller") or ""
         ).strip()
         if pd_id and seller:
             result[pd_id] = seller
@@ -3173,7 +3177,14 @@ def api_mustit_csv_upload():
         if "file" in request.files:
             f = request.files["file"]
             raw = f.read()
-            text = raw.decode("utf-8-sig", errors="replace")
+            # utf-8-sig 우선 시도 → 실패 시 euc-kr (엑셀 한국어 기본 인코딩)
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                try:
+                    text = raw.decode("euc-kr")
+                except UnicodeDecodeError:
+                    text = raw.decode("utf-8", errors="replace")
         else:
             # raw text/csv body
             text = request.get_data(as_text=True)
@@ -3183,14 +3194,14 @@ def api_mustit_csv_upload():
 
         mapping = _parse_mustit_csv(text)
         if not mapping:
-            return jsonify({"ok": False, "error": "유효한 데이터가 없습니다. 컬럼명을 확인하세요 (mallProductId, sellerId)."}), 400
+            return jsonify({"ok": False, "error": "유효한 데이터가 없습니다. 컬럼명을 확인하세요. (필수 컬럼: 상품번호, 판매자ID)"}), 400
 
         with _MUSTIT_CSV_LOCK:
             _MUSTIT_CSV_MAP = mapping
 
-        # 디스크에 저장 (서버 재시작 후에도 유지)
+        # 디스크에 저장 (서버 재시작 후에도 유지) - 한국어 헤더로 통일
         with open(_MUSTIT_CSV_PATH, "w", encoding="utf-8-sig", newline="") as fp:
-            fp.write("mallProductId,sellerId\n")
+            fp.write("상품번호,판매자ID\n")
             for pid, sid in mapping.items():
                 fp.write(f"{pid},{sid}\n")
 
@@ -3221,7 +3232,7 @@ def api_mustit_csv_download():
     """현재 로드된 CSV 맵을 CSV 파일로 다운로드."""
     with _MUSTIT_CSV_LOCK:
         mapping = dict(_MUSTIT_CSV_MAP)
-    lines = ["mallProductId,sellerId"]
+    lines = ["상품번호,판매자ID"]
     for pid, sid in mapping.items():
         lines.append(f"{pid},{sid}")
     csv_text = "\n".join(lines)
