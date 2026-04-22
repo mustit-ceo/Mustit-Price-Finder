@@ -3306,7 +3306,7 @@ def api_mustit_exposure():
     try:
         # sim(200개)과 asc(머스트잇 10개 조기종료)를 병렬 실행
         with ThreadPoolExecutor(max_workers=2) as ex:
-            f_sim = ex.submit(call_api, query, 200, "sim")
+            f_sim = ex.submit(call_api, query, 100, "sim")   # 100개 = 1회 API 호출
             f_asc = ex.submit(_fetch_mustit_asc_top10, query)
             sim_items = f_sim.result()
             asc_items = f_asc.result()
