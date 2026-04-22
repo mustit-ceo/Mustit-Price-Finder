@@ -11,6 +11,12 @@ try:
     _HAS_CFFI = True
 except ImportError:
     _HAS_CFFI = False
+
+try:
+    from playwright.sync_api import sync_playwright
+    _HAS_PLAYWRIGHT = True
+except ImportError:
+    _HAS_PLAYWRIGHT = False
 from urllib.parse import unquote
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, after_this_request
@@ -449,6 +455,70 @@ def _get_mustit_session():
         except Exception as e:
             print(f"[mustit] session warmup failed: {e}")
     return _MUSTIT_SESSION
+
+# ── Playwright 헤드리스 Chrome 싱글톤 ────────────────────────────────────────
+_PW_PLAYWRIGHT = None
+_PW_BROWSER    = None
+_PW_BROWSER_LOCK = threading.Lock()
+
+def _get_pw_browser():
+    """Playwright Chromium 싱글톤 반환. 실패 시 None."""
+    global _PW_PLAYWRIGHT, _PW_BROWSER
+    if _PW_BROWSER is not None:
+        return _PW_BROWSER
+    if not _HAS_PLAYWRIGHT:
+        return None
+    with _PW_BROWSER_LOCK:
+        if _PW_BROWSER is not None:
+            return _PW_BROWSER
+        try:
+            _PW_PLAYWRIGHT = sync_playwright().start()
+            _PW_BROWSER = _PW_PLAYWRIGHT.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox", "--disable-dev-shm-usage",
+                    "--disable-setuid-sandbox",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
+            print("[mustit-pw] Chromium launched")
+        except Exception as e:
+            print(f"[mustit-pw] launch failed: {e}")
+    return _PW_BROWSER
+
+
+def _fetch_mustit_html_playwright(pd_id):
+    """Playwright로 머스트잇 상품 상세 HTML 반환 (Cloudflare JS 챌린지 통과)."""
+    browser = _get_pw_browser()
+    if not browser:
+        return None
+    url = f"https://mustit.co.kr/product_detail/{pd_id}"
+    try:
+        ctx = browser.new_context(
+            locale="ko-KR",
+            user_agent=_UA,
+            viewport={"width": 1280, "height": 800},
+            extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
+        )
+        page = ctx.new_page()
+        # 이미지·폰트 차단 → 속도 향상 (RSC inline script는 영향 없음)
+        page.route(
+            "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf,css}",
+            lambda r: r.abort(),
+        )
+        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1500)  # RSC push 스크립트 로딩 대기
+        html = page.content()
+        ctx.close()
+        if "sellerId" in html:
+            print(f"[mustit-pw] OK pd_id={pd_id} len={len(html)}")
+            return html
+        print(f"[mustit-pw] no sellerId pd_id={pd_id} len={len(html)} head={html[:200]}")
+        return None
+    except Exception as e:
+        print(f"[mustit-pw] error pd_id={pd_id}: {e}")
+        return None
+
 
 def _find_first_key(obj, keys):
     """중첩 dict/list를 재귀 탐색해 keys 중 하나를 value 값이 비어있지 않은 상태로 최초 발견 시 반환."""
@@ -891,46 +961,48 @@ def _fetch_mustit_detail(link):
     }
 
     html = ""
-    try:
-        # mustit.co.kr → m.web.mustit.co.kr 로 리다이렉트되므로 직접 타겟
-        # (도메인이 달라 mustit.co.kr 쿠키가 전달 안 되는 문제 회피)
-        target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
-        referer = "https://m.web.mustit.co.kr/"
-        sess = _get_mustit_session()
-        if sess:
-            r = sess.get(target, timeout=10,
-                         headers={**_headers, "Referer": referer},
-                         allow_redirects=True)
-        else:
-            r = requests.get(target, timeout=8,
+
+    # ── ① Playwright 우선: Cloudflare JS 챌린지 실제 통과 ────────────────
+    if _HAS_PLAYWRIGHT:
+        html = _fetch_mustit_html_playwright(pd_id) or ""
+
+    # ── ② curl_cffi / requests 폴백 (Playwright 미설치 환경) ────────────
+    if not html:
+        try:
+            target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+            referer = "https://m.web.mustit.co.kr/"
+            sess = _get_mustit_session()
+            if sess:
+                r = sess.get(target, timeout=10,
                              headers={**_headers, "Referer": referer},
                              allow_redirects=True)
+            else:
+                r = requests.get(target, timeout=8,
+                                 headers={**_headers, "Referer": referer},
+                                 allow_redirects=True)
 
-        final_url = str(getattr(r, 'url', target))
-        # 리다이렉트 감지: product_detail이 최종 URL에 없으면 홈/에러 페이지로 빠진 것
-        if 'product_detail' not in final_url:
-            print(f"[mustit] 리다이렉트 감지 pd_id={pd_id} → {final_url} (세션 재초기화)")
-            global _MUSTIT_SESSION
-            _MUSTIT_SESSION = None
-            sess2 = _get_mustit_session()
-            if sess2:
-                r = sess2.get(target, timeout=10,
-                              headers={**_headers, "Referer": referer},
-                              allow_redirects=True)
-                final_url = str(getattr(r, 'url', target))
+            final_url = str(getattr(r, 'url', target))
+            if 'product_detail' not in final_url:
+                print(f"[mustit] 리다이렉트 감지 pd_id={pd_id} → {final_url}")
+                global _MUSTIT_SESSION
+                _MUSTIT_SESSION = None
+                sess2 = _get_mustit_session()
+                if sess2:
+                    r = sess2.get(target, timeout=10,
+                                  headers={**_headers, "Referer": referer},
+                                  allow_redirects=True)
+                    final_url = str(getattr(r, 'url', target))
 
-        if r.status_code == 200 and len(r.text) > 500 and 'product_detail' in final_url:
-            html = r.text
-            _MUSTIT_BOT_COUNT = 0
-            print(f"[mustit] OK pd_id={pd_id} len={len(html)}")
-        else:
-            _MUSTIT_BOT_COUNT += 1
-            print(f"[mustit] 실패 pd_id={pd_id} status={r.status_code} len={len(r.text)} final={final_url} (연속 {_MUSTIT_BOT_COUNT}회)")
-            if _MUSTIT_BOT_COUNT >= _MUSTIT_BOT_LIMIT:
-                _MUSTIT_BOT_UNTIL = time.time() + _MUSTIT_BOT_COOLDOWN
-                print(f"[mustit] circuit breaker 발동 — {_MUSTIT_BOT_COOLDOWN}초 대기")
-    except Exception as e:
-        print(f"[mustit] EXCEPTION pd_id={pd_id} err={e}")
+            if r.status_code == 200 and len(r.text) > 500 and 'product_detail' in final_url:
+                html = r.text
+                _MUSTIT_BOT_COUNT = 0
+            else:
+                _MUSTIT_BOT_COUNT += 1
+                print(f"[mustit] HTTP 실패 pd_id={pd_id} status={r.status_code} final={final_url}")
+                if _MUSTIT_BOT_COUNT >= _MUSTIT_BOT_LIMIT:
+                    _MUSTIT_BOT_UNTIL = time.time() + _MUSTIT_BOT_COOLDOWN
+        except Exception as e:
+            print(f"[mustit] HTTP EXCEPTION pd_id={pd_id} err={e}")
 
     if not html:
         return None
