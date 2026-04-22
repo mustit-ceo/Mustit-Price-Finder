@@ -6,6 +6,11 @@ import json
 import time
 import os
 import requests
+try:
+    from curl_cffi import requests as cffi_requests
+    _HAS_CFFI = True
+except ImportError:
+    _HAS_CFFI = False
 from urllib.parse import unquote
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, after_this_request
@@ -839,19 +844,33 @@ def _fetch_mustit_detail(link):
 
     _headers = {
         "User-Agent": _UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
+        "Sec-Ch-Ua": '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
     }
 
     html = ""
     try:
         target = f"https://mustit.co.kr/product_detail/{pd_id}"
-        r = requests.get(target, timeout=8,
-                         headers={**_headers, "Referer": "https://mustit.co.kr/"},
-                         allow_redirects=True)
+        if _HAS_CFFI:
+            # curl_cffi: 실제 Chrome TLS 지문으로 요청 (봇 감지 우회)
+            r = cffi_requests.get(target, timeout=10,
+                                  headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                                  impersonate="chrome124",
+                                  allow_redirects=True)
+        else:
+            r = requests.get(target, timeout=8,
+                             headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                             allow_redirects=True)
         if r.status_code == 200 and len(r.text) > 500:
             html = r.text
             _MUSTIT_BOT_COUNT = 0  # 성공 시 봇 카운터 리셋
