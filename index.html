@@ -687,6 +687,19 @@ function isSellerExc(txt){
   return false;
 }
 let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set (gray 표시용)
+// 판매자 설정에 등록된 이름 정규화 Set (가격 경쟁 현황 gray 표시용)
+let cfgNormSet = new Set();
+function buildCfgNormSet(cfg){
+  const s = new Set();
+  Object.values(cfg||{}).forEach(row => Object.values(row).forEach(v => { if(v) s.add(normSeller(v)); }));
+  return s;
+}
+function isCfgSeller(txt){
+  if(!txt) return false;
+  const norm = normSeller(txt);
+  for(const c of cfgNormSet){ if(c && (norm === c || norm.includes(c))) return true; }
+  return false;
+}
 const BASE=window.location.origin;
 
 /* ── 공통 fetch 래퍼 (에러 가시화) ── */
@@ -921,7 +934,7 @@ function renderRank(byPlat){
         // 서버 매칭 완료된 아이템이면 gray, 예외 목록이면 #888, 아니면 blue
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
-          const isCfg = it.link && lastMatchedLinks.has(it.link);
+          const isCfg = (it.link && lastMatchedLinks.has(it.link)) || isCfgSeller(txt);
           const isExc = isSellerExc(txt);
           tdS.style.color = isCfg ? '#666666' : isExc ? '#999999' : '#4E95D9';
         }
@@ -1396,7 +1409,7 @@ if(IS_SETTINGS_WIN){
   window.addEventListener('message', (e)=>{
     if(e.data && e.data.type==='mustit_settings_saved'){
       // 설정 저장 후 config 재로드 → 가격 경쟁 현황 색상 갱신
-      api('/api/config').then(c=>{ lastCfg=c; if(lastData) renderRank(lastData.by_platform||{}); }).catch(()=>{});
+      api('/api/config').then(c=>{ lastCfg=c; cfgNormSet=buildCfgNormSet(c); if(lastData) renderRank(lastData.by_platform||{}); }).catch(()=>{});
       const q=document.getElementById('qinput').value.trim();
       if(q) doSearch();
     }
@@ -1970,7 +1983,7 @@ function downloadBulkExcel(){
 
 refreshKey();
 // 초기 config 로드 → renderRank 색상 적용
-api('/api/config').then(c=>{ lastCfg=c; }).catch(()=>{});
+api('/api/config').then(c=>{ lastCfg=c; cfgNormSet=buildCfgNormSet(c); }).catch(()=>{});
 
 /* ── 머스트잇 노출순위 조회 Excel ── */
 function _downloadExposureExcel(){
