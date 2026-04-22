@@ -485,6 +485,26 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 
 </div>
 
+<!-- ═══ 상품번호 매핑 인증 모달 ═══ -->
+<div class="bm-ov" id="csv-auth-ov" style="display:none" onclick="if(event.target===this)closeCsvAuth()">
+  <div class="bm" style="max-width:320px;width:100%">
+    <div class="bm-head">
+      <div class="bm-ttl">접근 인증</div>
+      <button class="bm-x" onclick="closeCsvAuth()">✕</button>
+    </div>
+    <div style="padding:20px 20px 24px">
+      <p style="font-size:13px;color:var(--tx2);margin:0 0 16px">비밀번호를 입력하세요.</p>
+      <input id="csv-auth-input" type="password" placeholder="비밀번호"
+        style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bd);border-radius:6px;font-size:14px;background:var(--bg2);color:var(--tx);outline:none"
+        onkeydown="if(event.key==='Enter')submitCsvAuth()"
+        oninput="document.getElementById('csv-auth-err').style.display='none'"/>
+      <div id="csv-auth-err" style="display:none;font-size:12px;color:var(--rd);margin-top:8px">비밀번호가 올바르지 않습니다.</div>
+      <button class="btn pri" onclick="submitCsvAuth()"
+        style="width:100%;justify-content:center;padding:9px;margin-top:14px">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ 머스트잇 상품번호 매핑 CSV 모달 ═══ -->
 <div class="bm-ov" id="csv-ov" style="display:none" onclick="if(event.target===this)closeMustitCsvModal()">
   <div class="bm" style="max-width:480px;width:100%">
@@ -1336,8 +1356,28 @@ if(IS_SETTINGS_WIN){
 
 /* ── 머스트잇 CSV 팝업 ── */
 function openMustitCsvModal(){
-  document.getElementById('csv-ov').style.display='flex';
-  loadMustitCsvStatus();
+  // 인증 팝업 먼저 표시
+  const ov = document.getElementById('csv-auth-ov');
+  ov.style.display='flex';
+  const inp = document.getElementById('csv-auth-input');
+  inp.value='';
+  document.getElementById('csv-auth-err').style.display='none';
+  setTimeout(()=>inp.focus(), 80);
+}
+function closeCsvAuth(){
+  document.getElementById('csv-auth-ov').style.display='none';
+}
+function submitCsvAuth(){
+  const val = document.getElementById('csv-auth-input').value;
+  if(val === '3512'){
+    closeCsvAuth();
+    document.getElementById('csv-ov').style.display='flex';
+    loadMustitCsvStatus();
+  } else {
+    document.getElementById('csv-auth-err').style.display='block';
+    document.getElementById('csv-auth-input').value='';
+    document.getElementById('csv-auth-input').focus();
+  }
 }
 function closeMustitCsvModal(){
   document.getElementById('csv-ov').style.display='none';
