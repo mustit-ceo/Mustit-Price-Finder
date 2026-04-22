@@ -406,8 +406,8 @@ def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False):
 
 
 # ── PDP 판매자 추정 (각 몰별 best-effort 스크래핑) ───────────────────────────────
-_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
 _SELLER_CACHE = {}  # link → seller_id (세션 내 재사용)
 _DETAIL_CACHE = {}  # link → mustit detail dict (세션 내 재사용)
 _BYPLAT_CACHE = {}  # (query,ref,top_n) → (timestamp, by_plat)
@@ -566,7 +566,7 @@ def _get_pw_context():
             ctx = browser.new_context(
                 locale="ko-KR",
                 user_agent=_UA,
-                viewport={"width": 390, "height": 844},   # 모바일 사이즈
+                viewport={"width": 1280, "height": 800},   # 데스크톱 사이즈 (Mac Chrome)
                 extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
             )
             # 스텔스 JS 주입 (webdriver 감지 우회)
@@ -578,8 +578,8 @@ def _get_pw_context():
             )
             # 홈페이지 워밍업 → Cloudflare 챌린지 통과 + cf_clearance 쿠키 획득
             warmup = ctx.new_page()
-            print("[mustit-pw] warming up context on m.web.mustit.co.kr ...")
-            warmup.goto("https://m.web.mustit.co.kr/", wait_until="domcontentloaded", timeout=30000)
+            print("[mustit-pw] warming up context on mustit.co.kr ...")
+            warmup.goto("https://mustit.co.kr/", wait_until="domcontentloaded", timeout=30000)
             _pw_wait_challenge(warmup, timeout_ms=30000)
             cookies_after = ctx.cookies()
             cf_cookies = [c["name"] for c in cookies_after if "cf_" in c["name"].lower()]
@@ -599,8 +599,8 @@ def _fetch_mustit_html_playwright(pd_id):
     ctx = _get_pw_context()
     if not ctx:
         return None
-    # 모바일 상품 상세 URL을 직접 사용
-    url = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+    # 데스크톱 UA이므로 mustit.co.kr 데스크톱 URL 사용
+    url = f"https://mustit.co.kr/product_detail/{pd_id}"
     page = None
     try:
         page = ctx.new_page()
@@ -3130,7 +3130,7 @@ def api_debug_mustit_live():
     try:
         ctx = _get_pw_context()
         if ctx:
-            url = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+            url = f"https://mustit.co.kr/product_detail/{pd_id}"
             page = ctx.new_page()
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=40000)
@@ -3161,7 +3161,7 @@ def api_debug_mustit_live():
         result["playwright"] = {"error": str(e)}
 
     # ── curl_cffi / requests 테스트 ────────────────────────────────────
-    target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+    target = f"https://mustit.co.kr/product_detail/{pd_id}"
     try:
         sess = _get_mustit_session()
         hdrs = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9",
