@@ -3248,6 +3248,49 @@ def api_debug_mustit_live():
             api_results.append({"label": label, "url": url, "error": str(ex)})
     result["api_probe"] = api_results
 
+    # ── User-Agent 변형 테스트 (같은 URL, 다른 UA) ──────────────────────
+    # Cloudflare 규칙이 UA 기반이면 특정 UA로 405 우회 가능
+    _TARGET_URL = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+    _BASE_HDR = {"Accept-Language": "ko-KR,ko;q=0.9",
+                 "Accept": "text/html,application/xhtml+xml,*/*"}
+    ua_candidates = [
+        # 앱 네이티브 UA 추정 패턴
+        ("mustit_android_app",   "Mustit/3.0.0 (Android; Mobile)"),
+        ("mustit_ios_app",       "Mustit/3.0.0 (iPhone; iOS 17.0)"),
+        ("mustit_android_v2",    "com.mustit.android/2.0 (Android 14; Mobile)"),
+        ("mustit_android_v1",    "MustitApp/1.0 (Android; SDK 33)"),
+        # 카카오/네이버 브라우저 (한국 유저 많음)
+        ("kakaotalk_android",    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/121.0.0.0 Mobile Safari/537.36 KAKAOTALK/10.0.0"),
+        ("naver_android",        "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 NAVER(inapp; search; 1000; 12.5.0)"),
+        # iOS Safari
+        ("safari_ios17",         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1"),
+        # Android Chrome (최신)
+        ("chrome_android_124",   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"),
+        # Samsung Browser
+        ("samsung_browser",      "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36"),
+        # 현재 사용 중인 UA (기준)
+        ("current_ua",           _UA),
+    ]
+    ua_results = []
+    for ua_label, ua_str in ua_candidates:
+        try:
+            fn = sess2.get if sess2 else requests.get
+            r3 = fn(_TARGET_URL, timeout=8,
+                    headers={**_BASE_HDR, "User-Agent": ua_str},
+                    allow_redirects=False)
+            body3 = r3.text or ""
+            ua_results.append({
+                "label": ua_label,
+                "status": r3.status_code,
+                "len": len(body3),
+                "has_sellerId": "sellerId" in body3,
+                "has_verification": "Human Verification" in body3,
+                "head_120": body3[:120],
+            })
+        except Exception as ex:
+            ua_results.append({"label": ua_label, "error": str(ex)})
+    result["ua_probe"] = ua_results
+
     return jsonify(result)
 
 
