@@ -2140,12 +2140,16 @@ def api_enrich():
                             if part: tokens.add(part)
                     return tokens
                 sid_tokens = _tokenize(sid)
-                def _word_match(text):
+                # 디버그: 해당 플랫폼 아이템들의 seller/mallName 목록 출력
+                _avail = [(it.get("seller",""), it.get("mallName","")) for it in by_plat.get(plat, [])]
+                print(f"[match] label={label!r} plat={plat} sid={sid!r} sid_tokens={sid_tokens} avail_sellers={[s for s,m in _avail][:5]}")
+                def _word_match(text, _st=sid_tokens, _tok=_tokenize):
                     """sid 토큰 중 하나라도 text 토큰과 일치하면 True"""
-                    return bool(sid_tokens and sid_tokens & _tokenize(text))
+                    return bool(_st and _st & _tok(text))
                 found = next((it for it in by_plat.get(plat, [])
                               if _word_match(it.get("seller") or "")
                               or _word_match(it.get("mallName") or "")), None)
+                print(f"[match] → {'FOUND: '+found.get('seller','?') if found else 'NOT FOUND'}")
                 row["cells"][plat] = found
             rows.append(row)
         timing = {
