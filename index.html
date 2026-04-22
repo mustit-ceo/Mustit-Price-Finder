@@ -702,7 +702,10 @@ let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set 
 let cfgNormSet = new Set();
 function buildCfgNormSet(cfg){
   const s = new Set();
-  Object.values(cfg||{}).forEach(row => Object.values(row).forEach(v => { if(v) s.add(normSeller(v)); }));
+  Object.values(cfg||{}).forEach(row => Object.values(row).forEach(v => {
+    const n = normSeller(v);
+    if(n) s.add(n);   // 정규화 후 빈값("")은 추가하지 않음
+  }));
   return s;
 }
 function isCfgSeller(txt){
