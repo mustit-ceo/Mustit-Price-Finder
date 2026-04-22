@@ -2896,6 +2896,49 @@ def api_debug_mustit_search():
     return jsonify(result)
 
 
+@app.route("/api/debug/mustit_live")
+def api_debug_mustit_live():
+    """Railway에서 실제로 받는 HTML 진단. ?pd_id=숫자
+    curl_cffi 설치 여부, 세션 상태, final URL, sellerId 추출 여부를 반환."""
+    pd_id = request.args.get("pd_id", "121340554").strip()
+    target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+    result = {
+        "pd_id": pd_id,
+        "target": target,
+        "has_cffi": _HAS_CFFI,
+        "session_alive": _MUSTIT_SESSION is not None,
+    }
+    try:
+        sess = _get_mustit_session()
+        result["session_alive_after_get"] = _MUSTIT_SESSION is not None
+        hdrs = {
+            "User-Agent": _UA,
+            "Accept-Language": "ko-KR,ko;q=0.9",
+            "Referer": "https://m.web.mustit.co.kr/",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+        }
+        if sess:
+            r = sess.get(target, timeout=12, headers=hdrs, allow_redirects=True)
+        else:
+            r = requests.get(target, timeout=10, headers=hdrs, allow_redirects=True)
+        final_url = str(getattr(r, 'url', target))
+        html = r.text or ""
+        seller_idx = html.find('sellerId')
+        result.update({
+            "status_code": r.status_code,
+            "final_url": final_url,
+            "html_length": len(html),
+            "redirected_away": 'product_detail' not in final_url,
+            "has_sellerId": seller_idx >= 0,
+            "sellerId_context": html[max(0,seller_idx-30):seller_idx+80] if seller_idx >= 0 else None,
+            "html_head_300": html[:300],
+        })
+    except Exception as e:
+        result["error"] = str(e)
+    return jsonify(result)
+
+
 @app.route("/api/mustit_exposure")
 def api_mustit_exposure():
     """머스트잇 노출순위 조회: 가격순 상위 10개 머스트잇 상품의 네이버 랭킹순 노출순위 반환."""
