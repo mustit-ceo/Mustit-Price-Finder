@@ -1677,6 +1677,11 @@ async function startBulk(){
 
   document.getElementById('bm-xl-btn').style.display = ok>0 ? 'flex' : 'none';
   _setBmState('done');
+
+  // 수집 완료 시 자동 다운로드 (중단된 경우 제외)
+  if (!aborted && ok > 0) {
+    setTimeout(() => downloadBulkExcel(), 800);
+  }
 }
 
 /* ── 대량 Excel ── */
