@@ -736,13 +736,28 @@ function renderRank(byPlat){
   tb.innerHTML='';
   const cols = PLATS_RANK.map(p => (byPlat && byPlat[p]) ? byPlat[p] : []);
   const maxN = cols.reduce((a,c)=>Math.max(a,c.length), 0);
-  // 설정 판매자 ID 맵: { 플랫폼 → Set([seller_ids]) }
+  // 서버와 동일한 정규화: (주)/주식회사 제거, 소문자, 공백 정리
+  function _normSeller(t){
+    return (t||'').replace(/\(주\)/g,'').replace(/주식회사/g,'').toLowerCase().trim().replace(/\s+/g,' ');
+  }
+  // seller 텍스트의 모든 매칭 형태 반환 (괄호 내용 포함)
+  function _sellerForms(t){
+    const n = _normSeller(t);
+    const forms = new Set([n]);
+    const re = /[(\[（]\s*([^)）\]]+?)\s*[)）\]]/g;
+    let m;
+    while((m=re.exec(n))!==null) forms.add(m[1].trim());
+    const noParen = n.replace(/[(\[（][^)）\]]*[)）\]]/g,'').trim().replace(/\s+/g,' ');
+    if(noParen) forms.add(noParen);
+    return forms;
+  }
+  // 설정 판매자 ID 맵: { 플랫폼 → Set([정규화된 seller_ids]) }
   const cfgByPlat = {};
   Object.values(lastCfg||{}).forEach(map=>{
     Object.entries(map).forEach(([plat,sid])=>{
       if(!sid) return;
       if(!cfgByPlat[plat]) cfgByPlat[plat]=new Set();
-      cfgByPlat[plat].add(sid.trim().toLowerCase());
+      cfgByPlat[plat].add(_normSeller(sid));
     });
   });
   const wrap = document.getElementById('rank-more-wrap');
@@ -795,10 +810,11 @@ function renderRank(byPlat){
         const txt = it.seller || it.mallName || '';
         tdS.textContent = txt;
         tdS.title = txt;
-        // 설정 판매자 여부에 따라 색상 분기
+        // 설정 판매자 여부에 따라 색상 분기 (서버와 동일한 정규화 적용)
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
-          const isCfg = cfgByPlat[_plat] && cfgByPlat[_plat].has(txt.trim().toLowerCase());
+          const _cfg = cfgByPlat[_plat];
+          const isCfg = _cfg && [..._sellerForms(txt)].some(f => _cfg.has(f));
           tdS.style.color = isCfg ? '#666666' : '#4E95D9';
         }
         if(it.link){
