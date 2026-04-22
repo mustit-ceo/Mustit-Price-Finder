@@ -2558,11 +2558,12 @@ def post_config():
     save_json(CONFIG_FILE, data)
     return jsonify({"ok": True})
 
-@app.route("/api/config/cleanup", methods=["POST"])
+@app.route("/api/config/cleanup", methods=["GET","POST"])
 def cleanup_config():
     """설정에서 특정 값을 가진 셀만 빈 문자열로 초기화."""
     body = request.get_json(force=True, silent=True) or {}
-    targets = body.get("values", [])  # 제거할 값 목록
+    # GET 파라미터 또는 POST body 모두 지원
+    targets = body.get("values") or request.args.getlist("v") or []
     if not targets:
         return jsonify({"error": "values 필요"}), 400
     targets_lower = [v.strip().lower() for v in targets]
