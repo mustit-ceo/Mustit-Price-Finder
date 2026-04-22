@@ -423,8 +423,10 @@ _MUSTIT_SESSION      = None
 _MUSTIT_SESSION_LOCK = threading.Lock()
 
 def _get_mustit_session():
-    """홈페이지 방문으로 쿠키를 세팅한 curl_cffi Session 반환.
+    """m.web.mustit.co.kr 홈 방문으로 쿠키를 세팅한 curl_cffi Session 반환.
     없으면 None (requests 폴백).
+    핵심: mustit.co.kr 쿠키는 m.web.mustit.co.kr 요청에 전달되지 않으므로
+    반드시 m.web.mustit.co.kr 도메인으로 워밍업해야 한다.
     """
     global _MUSTIT_SESSION
     if _MUSTIT_SESSION is not None:
@@ -436,14 +438,14 @@ def _get_mustit_session():
             return _MUSTIT_SESSION
         try:
             sess = cffi_requests.Session(impersonate="chrome124")
-            # 홈 방문 → 세션 쿠키 발급
-            sess.get("https://mustit.co.kr/", timeout=10,
+            # m.web.mustit.co.kr 홈 방문 → 동일 도메인 세션 쿠키 발급
+            sess.get("https://m.web.mustit.co.kr/", timeout=10,
                      headers={"Accept-Language": "ko-KR,ko;q=0.9",
                                "Sec-Fetch-Dest": "document",
                                "Sec-Fetch-Mode": "navigate",
                                "Sec-Fetch-Site": "none"})
             _MUSTIT_SESSION = sess
-            print("[mustit] session warmed up")
+            print("[mustit] session warmed up (m.web.mustit.co.kr)")
         except Exception as e:
             print(f"[mustit] session warmup failed: {e}")
     return _MUSTIT_SESSION
@@ -890,39 +892,40 @@ def _fetch_mustit_detail(link):
 
     html = ""
     try:
-        target = f"https://mustit.co.kr/product_detail/{pd_id}"
+        # mustit.co.kr → m.web.mustit.co.kr 로 리다이렉트되므로 직접 타겟
+        # (도메인이 달라 mustit.co.kr 쿠키가 전달 안 되는 문제 회피)
+        target = f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}"
+        referer = "https://m.web.mustit.co.kr/"
         sess = _get_mustit_session()
         if sess:
-            # curl_cffi Session: 홈페이지 쿠키 유지 + Chrome TLS 지문
             r = sess.get(target, timeout=10,
-                         headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                         headers={**_headers, "Referer": referer},
                          allow_redirects=True)
         else:
             r = requests.get(target, timeout=8,
-                             headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                             headers={**_headers, "Referer": referer},
                              allow_redirects=True)
 
-        final_url = getattr(r, 'url', target)
+        final_url = str(getattr(r, 'url', target))
         # 리다이렉트 감지: product_detail이 최종 URL에 없으면 홈/에러 페이지로 빠진 것
-        if 'product_detail' not in str(final_url):
+        if 'product_detail' not in final_url:
             print(f"[mustit] 리다이렉트 감지 pd_id={pd_id} → {final_url} (세션 재초기화)")
-            # 세션 리셋 후 1회 재시도
             global _MUSTIT_SESSION
             _MUSTIT_SESSION = None
             sess2 = _get_mustit_session()
             if sess2:
                 r = sess2.get(target, timeout=10,
-                              headers={**_headers, "Referer": "https://mustit.co.kr/"},
+                              headers={**_headers, "Referer": referer},
                               allow_redirects=True)
-                final_url = getattr(r, 'url', target)
+                final_url = str(getattr(r, 'url', target))
 
-        if r.status_code == 200 and len(r.text) > 500 and 'product_detail' in str(final_url):
+        if r.status_code == 200 and len(r.text) > 500 and 'product_detail' in final_url:
             html = r.text
             _MUSTIT_BOT_COUNT = 0
-            print(f"[mustit] OK pd_id={pd_id} len={len(html)} url={final_url}")
+            print(f"[mustit] OK pd_id={pd_id} len={len(html)}")
         else:
             _MUSTIT_BOT_COUNT += 1
-            print(f"[mustit] 실패 pd_id={pd_id} status={r.status_code} len={len(r.text)} final_url={final_url} (연속 {_MUSTIT_BOT_COUNT}회)")
+            print(f"[mustit] 실패 pd_id={pd_id} status={r.status_code} len={len(r.text)} final={final_url} (연속 {_MUSTIT_BOT_COUNT}회)")
             if _MUSTIT_BOT_COUNT >= _MUSTIT_BOT_LIMIT:
                 _MUSTIT_BOT_UNTIL = time.time() + _MUSTIT_BOT_COOLDOWN
                 print(f"[mustit] circuit breaker 발동 — {_MUSTIT_BOT_COOLDOWN}초 대기")
