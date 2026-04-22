@@ -1688,8 +1688,7 @@ api('/api/config').then(c=>{ lastCfg=c; }).catch(()=>{});
 
 /* ── 머스트잇 노출순위 조회 Excel ── */
 function _downloadExposureExcel(){
-  const rows = _bmResults.filter(r=>r.ok && r.exposure);
-  if(!rows.length) return;
+  if(!_bmResults.length) return;
   const WB = XLSX.utils.book_new();
 
   // 헤더: 품번(A) | 순위 1~10 (B~K) — 참조 엑셀과 동일 구조
@@ -1703,9 +1702,9 @@ function _downloadExposureExcel(){
   ];
 
   const aoa = [h1, h2];
-  rows.forEach(r=>{
+  _bmResults.forEach(r=>{
     const items = r.exposure?.items || [];
-    // 가격순 1위~10위 각각의 노출순위, 없으면 빈칸
+    // 실패 시 빈칸 10개, 성공 시 가격순 1~10위 노출순위
     const rankCols = Array.from({length:10}, (_,i) => {
       const it = items[i];
       return (it && it.naver_rank != null) ? it.naver_rank : '';
