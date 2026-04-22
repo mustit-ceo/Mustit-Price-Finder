@@ -470,6 +470,11 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       판매자 데이터를 불러오는 중입니다…
     </div>
     <div id="cfg-content">
+      <!-- 검색 -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="cfg-search" class="ci" style="flex:1;height:32px;font-size:12px" placeholder="판매자명 또는 몰 ID 검색…" oninput="onCfgSearch(this.value)"/>
+        <span id="cfg-count" style="font-size:11px;color:var(--tx3);white-space:nowrap"></span>
+      </div>
       <div class="cw">
         <table class="ct">
           <thead><tr>
@@ -481,6 +486,12 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
           </tr></thead>
           <tbody id="cfgbody"></tbody>
         </table>
+      </div>
+      <!-- 페이지네이션 -->
+      <div id="cfg-pager" style="display:none;align-items:center;justify-content:center;gap:6px;margin:8px 0">
+        <button class="btn" id="cfg-prev" onclick="moveCfgPage(-1)">◀</button>
+        <span id="cfg-page-info" style="font-size:12px;color:var(--tx2)"></span>
+        <button class="btn" id="cfg-next" onclick="moveCfgPage(1)">▶</button>
       </div>
       <button class="addbtn" onclick="addRow()">+ 판매자 추가</button>
     </div>
@@ -1333,53 +1344,144 @@ async function loadSettings(){
   }
 }
 
-/* ── 판매자 Config ── */
-function renderCfg(cfg){
-  const tb=document.getElementById('cfgbody');
-  tb.innerHTML='';
-  let entries=Object.entries(cfg);
-  if(!entries.length){addRow();return;}
-  // 머스트잇 판매자 ID 기준 알파벳 오름차순 정렬
-  entries.sort((a,b)=>{
-    const ma=(a[1]['머스트잇']||'').trim().toLowerCase();
-    const mb=(b[1]['머스트잇']||'').trim().toLowerCase();
-    if(ma==='' && mb==='') return 0;
-    if(ma==='') return 1;
-    if(mb==='') return -1;
-    return ma < mb ? -1 : ma > mb ? 1 : 0;
-  });
-  // 순번을 1,2,3... 으로 재부여
-  entries.forEach(([,map],i)=>appendRow(String(i+1),map));
+/* ── 판매자 Config (페이지네이션 + 검색) ── */
+const CFG_PER_PAGE = 100;
+let cfgData   = [];   // [{lbl, map}] 전체 데이터 원본
+let cfgPage   = 1;
+let cfgSearch = '';
+
+function getCfgFiltered(){
+  if(!cfgSearch) return cfgData;
+  const q = cfgSearch.toLowerCase();
+  return cfgData.filter(({lbl, map}) =>
+    lbl.toLowerCase().includes(q) ||
+    Object.values(map).some(v => v.toLowerCase().includes(q))
+  );
 }
 
-function appendRow(lbl='',map={}){
-  const tb=document.getElementById('cfgbody');
-  const tr=document.createElement('tr');
-  const cells=PLATS.map(p=>`<td class="ctd"><input class="ci" data-plat="${p}" value="${map[p]||''}" placeholder="${p} 판매자 ID"/></td>`).join('');
-  tr.innerHTML=`
-    <td class="ctl"><input class="ci" style="text-align:center;font-weight:600" data-role="lbl" value="${lbl}" placeholder="1"/></td>
+function syncDomToData(){
+  // 현재 DOM에 표시된 행을 cfgData에 반영
+  const filtered = getCfgFiltered();
+  const start = (cfgPage - 1) * CFG_PER_PAGE;
+  document.querySelectorAll('#cfgbody tr').forEach((tr, i) => {
+    const item = filtered[start + i];
+    if(!item) return;
+    item.lbl = tr.querySelector('[data-role="lbl"]')?.value ?? item.lbl;
+    PLATS.forEach(p => { item.map[p] = tr.querySelector(`[data-plat="${p}"]`)?.value.trim() ?? item.map[p]; });
+  });
+}
+
+function renderCfgPage(){
+  const tb = document.getElementById('cfgbody');
+  tb.innerHTML = '';
+  const filtered = getCfgFiltered();
+  const total    = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / CFG_PER_PAGE));
+  if(cfgPage > totalPages) cfgPage = totalPages;
+  const start = (cfgPage - 1) * CFG_PER_PAGE;
+  const slice = filtered.slice(start, start + CFG_PER_PAGE);
+  slice.forEach(({lbl, map}) => _appendRowDom(tb, lbl, map));
+
+  // 카운트
+  const countEl = document.getElementById('cfg-count');
+  if(countEl) countEl.textContent = cfgSearch ? `${total} / ${cfgData.length}건` : `${total}건`;
+
+  // 페이지네이션
+  const pager = document.getElementById('cfg-pager');
+  if(totalPages > 1){
+    pager.style.display = 'flex';
+    document.getElementById('cfg-page-info').textContent = `${cfgPage} / ${totalPages}`;
+    document.getElementById('cfg-prev').disabled = cfgPage <= 1;
+    document.getElementById('cfg-next').disabled = cfgPage >= totalPages;
+  } else {
+    pager.style.display = 'none';
+  }
+}
+
+function _appendRowDom(tb, lbl, map){
+  const tr = document.createElement('tr');
+  const esc = v => (v||'').replace(/"/g,'&quot;');
+  const cells = PLATS.map(p =>
+    `<td class="ctd"><input class="ci" data-plat="${p}" value="${esc(map[p])}" placeholder="${p} 판매자 ID"/></td>`
+  ).join('');
+  tr.innerHTML = `
+    <td class="ctl"><input class="ci" style="text-align:center;font-weight:600" data-role="lbl" value="${esc(lbl)}" placeholder="1"/></td>
     ${cells}
-    <td class="ctd" style="width:34px"><button class="delbtn" onclick="this.closest('tr').remove()">✕</button></td>
+    <td class="ctd" style="width:34px"><button class="delbtn" onclick="delCfgRow(this)">✕</button></td>
   `;
   tb.appendChild(tr);
 }
 
+function delCfgRow(btn){
+  syncDomToData();
+  const tr = btn.closest('tr');
+  const idx = [...document.querySelectorAll('#cfgbody tr')].indexOf(tr);
+  const filtered = getCfgFiltered();
+  const start = (cfgPage - 1) * CFG_PER_PAGE;
+  const item = filtered[start + idx];
+  if(item) cfgData = cfgData.filter(d => d !== item);
+  renderCfgPage();
+}
+
+function renderCfg(cfg){
+  let entries = Object.entries(cfg);
+  entries.sort((a, b) => {
+    const ma = (a[1]['머스트잇']||'').trim().toLowerCase();
+    const mb = (b[1]['머스트잇']||'').trim().toLowerCase();
+    if(ma===''&&mb==='') return 0;
+    if(ma==='') return 1;
+    if(mb==='') return -1;
+    return ma < mb ? -1 : ma > mb ? 1 : 0;
+  });
+  cfgData = entries.map(([,map], i) => ({ lbl: String(i+1), map: {...map} }));
+  cfgPage = 1;
+  cfgSearch = '';
+  const searchEl = document.getElementById('cfg-search');
+  if(searchEl) searchEl.value = '';
+  if(!cfgData.length){ addRow(); return; }
+  renderCfgPage();
+}
+
+function onCfgSearch(val){
+  syncDomToData();
+  cfgSearch = val.trim();
+  cfgPage = 1;
+  renderCfgPage();
+}
+
+function moveCfgPage(dir){
+  syncDomToData();
+  cfgPage += dir;
+  renderCfgPage();
+}
+
 function addRow(){
-  const tb=document.getElementById('cfgbody');
-  appendRow(String(tb.children.length + 1));
+  syncDomToData();
+  cfgData.push({ lbl: String(cfgData.length + 1), map: Object.fromEntries(PLATS.map(p=>[p,''])) });
+  // 검색 중이면 해제하고 마지막 페이지로
+  cfgSearch = '';
+  const searchEl = document.getElementById('cfg-search');
+  if(searchEl) searchEl.value = '';
+  cfgPage = Math.ceil(cfgData.length / CFG_PER_PAGE);
+  renderCfgPage();
+  // 마지막 행 라벨 포커스
+  setTimeout(()=>{
+    const rows = document.querySelectorAll('#cfgbody tr');
+    rows[rows.length-1]?.querySelector('[data-role="lbl"]')?.focus();
+  }, 50);
 }
 
 /* ── 전체 저장 ── */
 async function saveAll(){
+  syncDomToData();  // 현재 페이지 DOM → cfgData 반영
   const savebtn=document.querySelector('#pg-settings .btn.pri');
   savebtn.disabled=true; savebtn.textContent='저장 중...';
   try{
     const cfg={};
-    document.querySelectorAll('#cfgbody tr').forEach(tr=>{
-      const lbl=tr.querySelector('[data-role="lbl"]')?.value.trim();
+    cfgData.forEach(({lbl, map})=>{
       if(!lbl) return;
       cfg[lbl]={};
-      PLATS.forEach(p=>{cfg[lbl][p]=tr.querySelector(`[data-plat="${p}"]`)?.value.trim()||'';});
+      PLATS.forEach(p=>{ cfg[lbl][p]=map[p]||''; });
     });
     await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
     toast('저장됐습니다.','suc');
