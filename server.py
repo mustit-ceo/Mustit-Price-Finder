@@ -3047,10 +3047,13 @@ def api_mustit_exposure():
             if price == 0:
                 continue
             naver_rank = rank_map.get(link)
+            rc_str = item.get("reviewCount", "0") or "0"
+            review_count = int(rc_str) if str(rc_str).isdigit() else 0
             results.append({
                 "product_no": product_no,
                 "name": strip_html(item.get("title", "")),
                 "price": price,
+                "review_count": review_count,
                 "naver_rank": naver_rank,
                 "link": link,
             })
