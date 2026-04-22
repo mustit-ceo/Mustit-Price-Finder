@@ -110,6 +110,12 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 .mt tbody tr:last-child td{border-bottom:none}
 .mth{font-size:12px;font-weight:600;padding:7px 6px;text-align:center;background:var(--bg3);color:var(--tx2)}
 .mth.mu{color:var(--mu)}
+.mth.sortable{cursor:pointer;user-select:none}
+.mth.sortable:hover{background:color-mix(in srgb,var(--blue) 10%,var(--bg3))}
+.mth.sort-active{background:color-mix(in srgb,var(--blue) 14%,var(--bg3));color:var(--blue)}
+.mth.sort-active.mu{color:var(--mu)}
+.sort-icon{display:inline-block;margin-left:4px;opacity:.5;font-size:10px}
+.mth.sort-active .sort-icon{opacity:1}
 .mlb{font-size:12px;font-weight:600;padding:6px 8px;text-align:center;background:var(--bg3);color:var(--tx2)}
 .mc{padding:7px 4px;text-align:center;cursor:pointer;transition:background .1s;min-height:48px;vertical-align:middle;position:relative;overflow:hidden}
 .mc:hover{background:color-mix(in srgb,var(--blue) 8%,var(--bg2))}
@@ -400,11 +406,11 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
             </colgroup>
             <thead><tr>
               <th class="mth">판매자</th>
-              <th class="mth mu">머스트잇</th>
-              <th class="mth">트렌비</th>
-              <th class="mth">SSG</th>
-              <th class="mth">롯데온</th>
-              <th class="mth">스마트스토어</th>
+              <th class="mth mu sortable sort-active" id="msort-0" onclick="setMatchSort(0)">머스트잇<span class="sort-icon">▲</span></th>
+              <th class="mth sortable" id="msort-1" onclick="setMatchSort(1)">트렌비<span class="sort-icon">▲</span></th>
+              <th class="mth sortable" id="msort-2" onclick="setMatchSort(2)">SSG<span class="sort-icon">▲</span></th>
+              <th class="mth sortable" id="msort-3" onclick="setMatchSort(3)">롯데온<span class="sort-icon">▲</span></th>
+              <th class="mth sortable" id="msort-4" onclick="setMatchSort(4)">스마트스토어<span class="sort-icon">▲</span></th>
             </tr></thead>
             <tbody id="matchbody"></tbody>
           </table>
@@ -607,7 +613,7 @@ const PLATS=['머스트잇','트렌비','SSG','롯데온','스마트스토어'];
 const PLATS_RANK=[...PLATS,'기타'];                             // 가격경쟁 현황 전용
 /* 최저가 배지 아이콘(★) — 폰트 컬러 대신 이걸로 표기 */
 const LO_ICON='<span class="lbg" title="최저가"><svg width="15" height="15" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.9 6.88 7.1.55-5.4 4.7 1.7 6.94L12 17.27l-6.3 3.8 1.7-6.94-5.4-4.7 7.1-.55L12 2z"/></svg></span>';
-let togMode=0, lastData=null, lastMatchRows=[], lastCfg={};
+let togMode=0, lastData=null, lastMatchRows=[], lastMatchRowsOrig=[], lastCfg={}, matchSortCol=0;
 let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set (gray 표시용)
 const BASE=window.location.origin;
 
@@ -897,15 +903,64 @@ function setTog(m,el){
   }
 }
 
+function setMatchSort(colIdx){
+  matchSortCol = colIdx;
+  // 헤더 활성 스타일 업데이트
+  PLATS.forEach((_,i)=>{
+    const th = document.getElementById('msort-'+i);
+    if(!th) return;
+    th.classList.toggle('sort-active', i===colIdx);
+  });
+  if(lastMatchRowsOrig && lastMatchRowsOrig.length){
+    renderMatch(lastMatchRowsOrig);
+  }
+}
+
 function renderMatch(rows){
-  lastMatchRows = rows;          // showDet 인덱스 매칭용 — 필터된 행 그대로 보관
+  // 정렬: 선택된 몰 기준으로 행 정렬
+  const sortedRows = [...rows].sort((a, b) => {
+    const col = matchSortCol;
+    const platName = PLATS[col];
+    const ca = a.cells?.[platName] || null;
+    const cb = b.cells?.[platName] || null;
+    const getDisp = (cell) => {
+      if(!cell) return null;
+      return togMode === 1 ? calcMaxBenefit(cell) : cell.price;
+    };
+    const da = getDisp(ca);
+    const db = getDisp(cb);
+
+    // 가격 없음(null/undefined) → 맨 뒤
+    if(da == null && db == null) return 0;
+    if(da == null) return 1;
+    if(db == null) return -1;
+
+    // 해당 몰이 최저가인지 확인 (행 전체 플랫폼 중 가장 낮은지)
+    const isLowest = (row, ci) => {
+      const cells = PLATS.map(p => row.cells?.[p]||null);
+      const disps = cells.map(c => { if(!c) return null; return togMode===1 ? calcMaxBenefit(c) : c.price; });
+      const valid = disps.filter(p => p!=null);
+      if(!valid.length) return false;
+      const mn = Math.min(...valid);
+      return disps[ci] === mn;
+    };
+    const laLow = isLowest(a, col);
+    const lbLow = isLowest(b, col);
+    if(laLow && !lbLow) return -1;
+    if(!laLow && lbLow) return 1;
+    // 둘 다 최저가거나 둘 다 아닌 경우 → 가격 오름차순
+    return da - db;
+  });
+
+  lastMatchRowsOrig = rows;      // 원본 행 보관 (재정렬용)
+  lastMatchRows = sortedRows;    // showDet 인덱스 매칭용 — 정렬된 행으로 보관
   const tb=document.getElementById('matchbody');
   tb.innerHTML='';
-  if(!rows.length){
+  if(!sortedRows.length){
     tb.innerHTML=`<tr><td colspan="${1+PLATS.length}" style="padding:14px;text-align:center;color:var(--tx3);font-size:11px">설정에서 판매자를 먼저 등록하세요</td></tr>`;
     return;
   }
-  rows.forEach((row,ri)=>{
+  sortedRows.forEach((row,ri)=>{
     const cells=PLATS.map(p=>row.cells?.[p]||null);
 
     // togMode 에 따라 표시 가격 결정 (최대혜택가 모드면 calcMaxBenefit 사용)
