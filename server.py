@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory, after_this_request
 
 app = Flask(__name__, static_folder="static")
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB 업로드 제한
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 # Railway Volume이 마운트된 경우 /data 사용, 아니면 로컬 폴더 사용
