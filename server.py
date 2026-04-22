@@ -464,6 +464,41 @@ _PW_BROWSER_LOCK = threading.Lock()
 _PW_CTX        = None   # 쿠키가 살아있는 공유 브라우저 컨텍스트
 _PW_CTX_LOCK   = threading.Lock()
 
+# Cloudflare / 자동화 감지 우회용 스텔스 스크립트
+_PW_STEALTH_JS = """
+// webdriver 플래그 제거
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined, configurable: true });
+// Chrome DevTools Protocol 흔적 제거
+['cdc_adoQpoasnfa76pfcZLmcfl_Array',
+ 'cdc_adoQpoasnfa76pfcZLmcfl_Promise',
+ 'cdc_adoQpoasnfa76pfcZLmcfl_Symbol'].forEach(k => { try { delete window[k]; } catch(_) {} });
+// 실제 브라우저와 동일한 언어/플러그인
+Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] });
+Object.defineProperty(navigator, 'plugins', {
+    get: () => {
+        const arr = [
+            { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai.pdf', description: '' },
+            { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+        ];
+        arr.refresh = () => {};
+        return arr;
+    }
+});
+// Chrome 객체 위장
+if (!window.chrome) {
+    window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){}, app: {} };
+}
+// notification permission 위장
+const origQuery = window.navigator.permissions ? window.navigator.permissions.query.bind(window.navigator.permissions) : null;
+if (origQuery) {
+    window.navigator.permissions.query = (parameters) =>
+        parameters.name === 'notifications'
+            ? Promise.resolve({ state: Notification.permission })
+            : origQuery(parameters);
+}
+"""
+
 def _get_pw_browser():
     """Playwright Chromium 싱글톤 반환. 실패 시 None."""
     global _PW_PLAYWRIGHT, _PW_BROWSER
@@ -534,7 +569,9 @@ def _get_pw_context():
                 viewport={"width": 390, "height": 844},   # 모바일 사이즈
                 extra_http_headers={"Accept-Language": "ko-KR,ko;q=0.9"},
             )
-            # 이미지·폰트만 차단 (CSS·JS는 Cloudflare 챌린지에 필요할 수 있어 허용)
+            # 스텔스 JS 주입 (webdriver 감지 우회)
+            ctx.add_init_script(_PW_STEALTH_JS)
+            # 이미지·폰트만 차단 (CSS·JS는 Cloudflare 챌린지에 필요)
             ctx.route(
                 "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,otf}",
                 lambda r: r.abort(),
@@ -3142,6 +3179,47 @@ def api_debug_mustit_live():
         }
     except Exception as e:
         result["curl_cffi"] = {"error": str(e)}
+
+    # ── Mustit 내부 REST API 엔드포인트 탐색 ──────────────────────────
+    # 앱/Next.js가 호출하는 JSON API는 CF 보호가 다를 수 있음
+    api_candidates = [
+        f"https://mustit.co.kr/api/v1/goods/{pd_id}",
+        f"https://mustit.co.kr/api/v2/goods/{pd_id}",
+        f"https://mustit.co.kr/api/goods/{pd_id}",
+        f"https://m.web.mustit.co.kr/api/v1/goods/{pd_id}",
+        f"https://m.web.mustit.co.kr/api/v2/goods/{pd_id}",
+        f"https://m.web.mustit.co.kr/api/product/{pd_id}",
+        # RSC 전용 요청 (Next.js App Router)
+        f"https://m.web.mustit.co.kr/v2/m/product/product_detail/{pd_id}",
+    ]
+    api_hdrs_base = {
+        "User-Agent": _UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": "https://m.web.mustit.co.kr/",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    # RSC 요청용 헤더 변형
+    rsc_hdrs = {**api_hdrs_base, "RSC": "1", "Accept": "text/x-component"}
+
+    api_results = []
+    sess2 = _get_mustit_session()
+    for i, url in enumerate(api_candidates):
+        try:
+            h = rsc_hdrs if i == len(api_candidates) - 1 else api_hdrs_base
+            fn = sess2.get if sess2 else requests.get
+            r2 = fn(url, timeout=8, headers=h, allow_redirects=False)
+            body = r2.text or ""
+            api_results.append({
+                "url": url,
+                "status": r2.status_code,
+                "len": len(body),
+                "has_sellerId": "sellerId" in body,
+                "head_150": body[:150],
+            })
+        except Exception as ex:
+            api_results.append({"url": url, "error": str(ex)})
+    result["api_probe"] = api_results
 
     return jsonify(result)
 
