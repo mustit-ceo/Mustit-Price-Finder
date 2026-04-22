@@ -305,6 +305,10 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M4 5h8M4 8h5M4 11h6"/></svg>
       상품번호 매핑
     </button>
+    <button class="btn" onclick="openSellerExcModal()">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5" r="2.5"/><path d="M3 13c0-2.76 2.24-5 5-5s5 2.24 5 5"/><line x1="11" y1="9" x2="15" y2="9" stroke-width="1.6"/></svg>
+      판매자 예외 설정
+    </button>
     <button class="btn" onclick="openSettings()">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
       판매자 설정
@@ -505,6 +509,30 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
   </div>
 </div>
 
+<!-- ═══ 판매자 예외 설정 모달 ═══ -->
+<div class="bm-ov" id="seller-exc-ov" style="display:none" onclick="if(event.target===this)closeSellerExcModal()">
+  <div class="bm" style="max-width:400px;width:100%">
+    <div class="bm-head">
+      <div class="bm-ttl">판매자 예외 설정</div>
+      <button class="bm-x" onclick="closeSellerExcModal()">✕</button>
+    </div>
+    <div class="bm-body" style="min-height:0">
+      <div>
+        <div class="bm-lbl">예외 mallName 목록 (한 줄에 하나씩)</div>
+        <textarea class="bm-ta" id="seller-exc-ta" style="height:180px"
+          placeholder="mustit&#10;trenv&#10;ssg_official&#10;..."></textarea>
+        <div style="font-size:11px;color:var(--tx3);margin-top:5px">
+          입력된 mallName은 미매칭(파란색) 대신 <span style="color:#888;font-weight:600">#888888</span>으로 표기됩니다.
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:.5px solid var(--bd);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeSellerExcModal()">취소</button>
+      <button class="btn pri" onclick="saveSellerExc()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ 머스트잇 상품번호 매핑 CSV 모달 ═══ -->
 <div class="bm-ov" id="csv-ov" style="display:none" onclick="if(event.target===this)closeMustitCsvModal()">
   <div class="bm" style="max-width:480px;width:100%">
@@ -634,6 +662,8 @@ const PLATS_RANK=[...PLATS,'기타'];                             // 가격경�
 /* 최저가 배지 아이콘(★) — 폰트 컬러 대신 이걸로 표기 */
 const LO_ICON='<span class="lbg" title="최저가"><svg width="15" height="15" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.9 6.88 7.1.55-5.4 4.7 1.7 6.94L12 17.27l-6.3 3.8 1.7-6.94-5.4-4.7 7.1-.55L12 2z"/></svg></span>';
 let togMode=0, lastData=null, lastMatchRows=[], lastMatchRowsOrig=[], lastCfg={}, matchSortCol=0;
+// 판매자 예외 목록 (localStorage 영속)
+let sellerExcSet = new Set(JSON.parse(localStorage.getItem('sellerExcList')||'[]'));
 let lastMatchedLinks = new Set(); // 서버 매칭 완료된 아이템 link Set (gray 표시용)
 const BASE=window.location.origin;
 
@@ -866,11 +896,12 @@ function renderRank(byPlat){
         const txt = it.seller || it.mallName || '';
         tdS.textContent = txt;
         tdS.title = txt;
-        // 서버 매칭 완료된 아이템이면 gray, 아니면 blue
+        // 서버 매칭 완료된 아이템이면 gray, 예외 목록이면 #888, 아니면 blue
         const _plat = PLATS_RANK[ci];
         if(_plat !== '기타' && txt){
           const isCfg = it.link && lastMatchedLinks.has(it.link);
-          tdS.style.color = isCfg ? '#666666' : '#4E95D9';
+          const isExc = it.mallName && sellerExcSet.has(it.mallName);
+          tdS.style.color = isCfg ? '#666666' : isExc ? '#888888' : '#4E95D9';
         }
         if(it.link){
           const open = () => window.open(it.link, '_blank');
@@ -1381,6 +1412,27 @@ function submitCsvAuth(){
 }
 function closeMustitCsvModal(){
   document.getElementById('csv-ov').style.display='none';
+}
+
+/* ── 판매자 예외 설정 ── */
+function openSellerExcModal(){
+  const ta = document.getElementById('seller-exc-ta');
+  ta.value = [...sellerExcSet].join('\n');
+  document.getElementById('seller-exc-ov').style.display='flex';
+  setTimeout(()=>ta.focus(), 80);
+}
+function closeSellerExcModal(){
+  document.getElementById('seller-exc-ov').style.display='none';
+}
+function saveSellerExc(){
+  const lines = document.getElementById('seller-exc-ta').value
+    .split('\n').map(l=>l.trim()).filter(Boolean);
+  sellerExcSet = new Set(lines);
+  localStorage.setItem('sellerExcList', JSON.stringify(lines));
+  closeSellerExcModal();
+  toast(`판매자 예외 목록 저장 (${lines.length}건)`);
+  // 현재 결과가 있으면 즉시 재렌더
+  if(lastData) renderRank(lastData.by_platform||{});
 }
 
 async function loadMustitCsvStatus(){
