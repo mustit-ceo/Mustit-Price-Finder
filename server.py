@@ -2506,6 +2506,7 @@ def api_search():
             "enriched": False,
             "mustit_ref_price": mustit_ref,   # anchor 최저가 (하한선 기준점)
             "anchor_platform": anchor_plat,   # 기준점이 된 플랫폼명
+            "_debug_product_type": product_type,  # 진단용
         })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

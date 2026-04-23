@@ -329,6 +329,8 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
     </button>
   </div>
 
+  <div id="debug-pt-badge" style="display:none;margin:6px 0 2px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.4);color:var(--tx1)"></div>
+
   <div class="ph" id="ph" style="display:none">
     <div class="ph-thumb"><img id="phimg" src="" onerror="this.style.display='none'"/></div>
     <div class="ph-info">
@@ -856,6 +858,13 @@ async function _startEnrich(q, phase1Data){
 }
 
 function renderAll(data){
+  // 진단 배지: 서버가 받은 product_type 표시
+  const debugEl = document.getElementById('debug-pt-badge');
+  if(debugEl){
+    const pt = data._debug_product_type;
+    debugEl.textContent = pt === 2 ? '🟠 중고 필터 적용됨 (서버 수신: 2)' : pt === 1 ? '🔵 일반 필터 적용됨 (서버 수신: 1)' : `서버 수신: ${pt}`;
+    debugEl.style.display = 'inline-block';
+  }
   const top=data.top10?.[0];
   document.getElementById('ph').style.display='flex';
   document.getElementById('dlbtn').style.display='flex';
