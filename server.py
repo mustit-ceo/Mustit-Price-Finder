@@ -123,7 +123,7 @@ def load_config():return load_json(CONFIG_FILE, {})
 def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: int = 1) -> list:
     """Naver shop.json을 start 파라미터로 페이지네이션하며 최대 max_items개 수집.
     sort: 'asc'(가격 오름차순) | 'sim'(유사도=네이버쇼핑 기본 랭킹순) | 'dsc' | 'date'
-    product_type: 1=새상품(기본) | 2=중고
+    product_type: 1=새상품(기본) | 2=중고  ← API 응답 필터링 (파라미터 미지원)
     """
     keys = load_keys()
     cid  = keys.get("client_id",  "").strip()
@@ -140,7 +140,7 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
         try:
             r = requests.get(
                 API_URL,
-                params={"query": query, "display": display, "start": start, "sort": sort, "productType": product_type},
+                params={"query": query, "display": display, "start": start, "sort": sort},
                 headers=headers, timeout=10,
             )
         except requests.exceptions.Timeout:
@@ -157,6 +157,9 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
             raise ValueError(f"API 오류({r.status_code}): {r.text[:120]}")
         batch = r.json().get("items", [])
         if not batch: break
+        # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
+        if product_type:
+            batch = [it for it in batch if str(it.get("productType","")) == str(product_type)]
         all_items.extend(batch)
         if len(batch) < display: break  # 더 이상 결과 없음
         start += display
@@ -185,7 +188,7 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
         try:
             r = requests.get(
                 API_URL,
-                params={"query": query, "display": 100, "start": start, "sort": "asc", "productType": product_type},
+                params={"query": query, "display": 100, "start": start, "sort": "asc"},
                 headers=headers, timeout=10,
             )
         except requests.exceptions.Timeout:
@@ -205,6 +208,9 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
             break
 
         for item in batch:
+            # productType 필터링
+            if product_type and str(item.get("productType","")) != str(product_type):
+                continue
             p_str = item.get("lprice", "0")
             price = int(p_str) if p_str.isdigit() else 0
             if price == 0:
