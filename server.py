@@ -2641,31 +2641,38 @@ def api_search_raw():
     by_plat_count = {p: 0 for p in PLATFORM_MAP}
     by_plat_count["(unmatched)"] = 0
     simplified = []
+    pt_dist = {}  # productType 분포
     for it in items:
         plat = detect_platform(it) or "(unmatched)"
         by_plat_count[plat] = by_plat_count.get(plat, 0) + 1
         lnk = it.get("link", "")
         nmid = _extract_naver_nmid(lnk) if plat == "머스트잇" else ""
         pid  = it.get("productId", "")
+        pt   = str(it.get("productType", ""))
+        pt_dist[pt] = pt_dist.get(pt, 0) + 1
         simplified.append({
-            "platform":   plat,
-            "mallName":   it.get("mallName", ""),
-            "lprice":     it.get("lprice", ""),
-            "title":      re.sub(r"<[^>]+>", "", it.get("title", ""))[:60],
-            "link":       lnk,
-            # 머스트잇 전용 — 네이버 할인 링크 구성 디버그용
-            "productId":  pid,
-            "naver_nmid": nmid,
-            "proposed_url": (
-                f"https://search.shopping.naver.com/product/{nmid}" if nmid else
-                (f"https://search.shopping.naver.com/product/{pid}" if pid and plat=="머스트잇" else "")
-            ),
+            "platform":    plat,
+            "mallName":    it.get("mallName", ""),
+            "lprice":      it.get("lprice", ""),
+            "productType": pt,
+            "title":       re.sub(r"<[^>]+>", "", it.get("title", ""))[:60],
+            "link":        lnk,
+            "productId":   pid,
+            "naver_nmid":  nmid,
         })
+    pt_label = {
+        "1": "새상품(1)",
+        "2": "중고(2)",
+        "3": "렌탈(3)",
+        "5": "기타(5)",
+    }
+    pt_summary = {pt_label.get(k, f"타입{k}"): v for k, v in sorted(pt_dist.items())}
     return jsonify({
         "query": query,
         "total": len(items),
+        "productType_분포": pt_summary,
         "by_platform_count": by_plat_count,
-        "items": simplified,
+        "items_sample": simplified[:50],  # 앞 50개만
     })
 
 @app.route("/api/debug/ssg")
