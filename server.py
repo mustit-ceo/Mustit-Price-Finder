@@ -157,6 +157,11 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
             raise ValueError(f"API 오류({r.status_code}): {r.text[:120]}")
         batch = r.json().get("items", [])
         if not batch: break
+        # 첫 페이지에서 productType 분포 로그
+        if start == 1:
+            from collections import Counter
+            dist = Counter(str(it.get("productType","(없음)")) for it in batch)
+            print(f"[productType 분포] query={query} sort={sort} → {dict(dist)}")
         # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
         # product_type=2(중고)만 엄격히 필터. 새상품(1)은 미기재 항목도 포함.
         if product_type == 2:
