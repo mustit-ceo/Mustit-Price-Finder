@@ -2715,10 +2715,16 @@ def debug_producttype():
                 "samples": examples[key]
             }
 
+    # 첫 번째 raw item의 모든 필드명 확인 (productType vs condition 검증용)
+    first_item_keys = list(items[0].keys()) if items else []
+    first_item_raw  = {k: items[0].get(k) for k in first_item_keys} if items else {}
+
     return jsonify({
         "query": query,
         "sort": sort,
         "total": len(items),
+        "raw_field_names": first_item_keys,       # ← API가 실제 반환하는 필드명
+        "first_item_raw": first_item_raw,          # ← 첫 번째 아이템 전체
         "platform_x_productType": result,
     })
 
