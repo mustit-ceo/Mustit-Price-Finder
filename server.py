@@ -158,8 +158,11 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
         batch = r.json().get("items", [])
         if not batch: break
         # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
-        if product_type:
-            batch = [it for it in batch if str(it.get("productType","")) == str(product_type)]
+        # product_type=2(중고)만 엄격히 필터. 새상품(1)은 미기재 항목도 포함.
+        if product_type == 2:
+            batch = [it for it in batch if str(it.get("productType","")) == "2"]
+        elif product_type == 1:
+            batch = [it for it in batch if str(it.get("productType","")) not in ("2", "3")]
         all_items.extend(batch)
         if len(batch) < display: break  # 더 이상 결과 없음
         start += display
@@ -209,7 +212,10 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
 
         for item in batch:
             # productType 필터링
-            if product_type and str(item.get("productType","")) != str(product_type):
+            pt = str(item.get("productType", ""))
+            if product_type == 2 and pt != "2":
+                continue
+            if product_type == 1 and pt in ("2", "3"):
                 continue
             p_str = item.get("lprice", "0")
             price = int(p_str) if p_str.isdigit() else 0
