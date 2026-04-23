@@ -157,6 +157,7 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
             raise ValueError(f"API 오류({r.status_code}): {r.text[:120]}")
         batch = r.json().get("items", [])
         if not batch: break
+        raw_len = len(batch)  # 필터링 전 원본 크기 (페이지네이션 종료 판단용)
         # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
         # Naver API: productType=1 새상품, productType=2 중고
         if product_type == 2:   # 중고 검색 (checked): 2만 통과
@@ -164,7 +165,7 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
         elif product_type == 1:  # 새상품 검색 (unchecked, 기본): 2 제외
             batch = [it for it in batch if str(it.get("productType","")) != "2"]
         all_items.extend(batch)
-        if len(batch) < display: break  # 더 이상 결과 없음
+        if raw_len < display: break  # 더 이상 결과 없음 (필터 전 크기로 판단)
         start += display
     return all_items
 
