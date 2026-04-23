@@ -159,11 +159,11 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
         if not batch: break
         raw_len = len(batch)  # 필터링 전 원본 크기 (페이지네이션 종료 판단용)
         # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
-        # Naver API: productType=1 새상품, productType=2 중고
-        # product_type=2(중고 체크): 중고만 표시 / product_type=1(미체크 기본): 필터 없음(전체)
-        if product_type == 2:   # 중고 검색 (checked): productType=2만 통과
-            batch = [it for it in batch if str(it.get("productType","")) == "2"]
-        # product_type==1 (미체크 기본): 필터 없이 전체 결과 반환
+        # Naver API: productType=1 새상품, productType=2 중고(사업자), productType=3 렌탈, productType=5 중고(개인/위탁)
+        # product_type=2(중고 체크): pt=2(사업자 중고)+pt=5(개인/위탁 중고) 모두 포함
+        # product_type=1(미체크 기본): 필터 없이 전체 결과 반환
+        if product_type == 2:   # 중고 검색 (checked): pt=2 또는 pt=5만 통과
+            batch = [it for it in batch if str(it.get("productType","")) in ("2","5")]
         all_items.extend(batch)
         if raw_len < display: break  # 더 이상 결과 없음 (필터 전 크기로 판단)
         start += display
@@ -212,9 +212,9 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
             break
 
         for item in batch:
-            # productType 필터링: 중고 체크(2)일 때만 필터, 미체크(1)는 전체 허용
+            # productType 필터링: 중고 체크(2)일 때 pt=2(사업자)+pt=5(개인/위탁) 허용
             pt = str(item.get("productType", ""))
-            if product_type == 2 and pt != "2":   # 중고 검색: productType=2만
+            if product_type == 2 and pt not in ("2", "5"):   # 중고 검색: pt=2 또는 pt=5만
                 continue
             # product_type==1 (미체크): 필터 없음 → 전체 허용
             p_str = item.get("lprice", "0")
