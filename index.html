@@ -300,11 +300,11 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         대량 조회
       </button>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap">
-        <input type="checkbox" id="used-chk" style="accent-color:var(--blue);width:13px;height:13px;cursor:pointer" onchange="onUsedChkChange()">
-        중고 검색
-      </label>
     </div>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
+      <input type="checkbox" id="used-chk" style="accent-color:var(--blue);width:13px;height:13px;cursor:pointer" onchange="onUsedChkChange()">
+      중고 검색
+    </label>
     <button class="btn" onclick="openMustitCsvModal()" style="margin-left:auto" title="머스트잇 상품번호 → 판매자ID 매핑 CSV 관리">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M4 5h8M4 8h5M4 11h6"/></svg>
       상품번호 매핑
