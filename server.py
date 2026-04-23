@@ -158,11 +158,11 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
         batch = r.json().get("items", [])
         if not batch: break
         # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
-        # 실측: Naver API productType → 1=중고, 2=새상품
-        if product_type == 2:   # 중고 검색 (checked)
-            batch = [it for it in batch if str(it.get("productType","")) == "1"]
-        elif product_type == 1:  # 새상품 검색 (unchecked, 기본)
-            batch = [it for it in batch if str(it.get("productType","")) != "1"]
+        # Naver API: productType=1 새상품, productType=2 중고
+        if product_type == 2:   # 중고 검색 (checked): 2만 통과
+            batch = [it for it in batch if str(it.get("productType","")) == "2"]
+        elif product_type == 1:  # 새상품 검색 (unchecked, 기본): 2 제외
+            batch = [it for it in batch if str(it.get("productType","")) != "2"]
         all_items.extend(batch)
         if len(batch) < display: break  # 더 이상 결과 없음
         start += display
@@ -211,11 +211,11 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
             break
 
         for item in batch:
-            # productType 필터링 (Naver API 실측: 1=중고, 2=새상품)
+            # productType 필터링 (Naver API 실측: 1=새상품, 2=중고)
             pt = str(item.get("productType", ""))
-            if product_type == 2 and pt != "1":   # 중고 검색: productType=1만
+            if product_type == 2 and pt != "2":   # 중고 검색: productType=2만
                 continue
-            if product_type == 1 and pt == "1":   # 새상품 검색: productType=1 제외
+            if product_type == 1 and pt == "2":   # 새상품 검색: productType=2 제외
                 continue
             p_str = item.get("lprice", "0")
             price = int(p_str) if p_str.isdigit() else 0
