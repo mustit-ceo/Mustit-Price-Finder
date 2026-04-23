@@ -120,10 +120,9 @@ def load_config():return load_json(CONFIG_FILE, {})
 
 
 # ── 네이버 API ─────────────────────────────────────────────────────────────────
-def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: int = 1) -> list:
+def call_api(query: str, max_items: int = 300, sort: str = "asc") -> list:
     """Naver shop.json을 start 파라미터로 페이지네이션하며 최대 max_items개 수집.
     sort: 'asc'(가격 오름차순) | 'sim'(유사도=네이버쇼핑 기본 랭킹순) | 'dsc' | 'date'
-    product_type: 1=새상품(기본) | 2=중고  ← API 응답 필터링 (파라미터 미지원)
     """
     keys = load_keys()
     cid  = keys.get("client_id",  "").strip()
@@ -157,26 +156,18 @@ def call_api(query: str, max_items: int = 300, sort: str = "asc", product_type: 
             raise ValueError(f"API 오류({r.status_code}): {r.text[:120]}")
         batch = r.json().get("items", [])
         if not batch: break
-        raw_len = len(batch)  # 필터링 전 원본 크기 (페이지네이션 종료 판단용)
-        # productType 필터링 (API 파라미터 미지원 → 응답에서 직접 필터)
-        # Naver API: productType=1 새상품, productType=2 중고(사업자), productType=3 렌탈, productType=5 중고(개인/위탁)
-        # product_type=2(중고 체크): pt=2(사업자 중고)+pt=5(개인/위탁 중고) 모두 포함
-        # product_type=1(미체크 기본): 필터 없이 전체 결과 반환
-        if product_type == 2:   # 중고 검색 (checked): pt=2 또는 pt=5만 통과
-            batch = [it for it in batch if str(it.get("productType","")) in ("2","5")]
         all_items.extend(batch)
-        if raw_len < display: break  # 더 이상 결과 없음 (필터 전 크기로 판단)
+        if len(batch) < display: break  # 더 이상 결과 없음
         start += display
     return all_items
 
 def strip_html(t): return re.sub(r"<[^>]+>", "", t).strip()
 
 
-def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, product_type: int = 1) -> list:
+def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200) -> list:
     """sort=asc로 1위부터 순서대로 탐색.
     floor_price 이상인 첫 상품을 발견한 시점부터 max_items개 수집.
-    floor_price=0 이면 처음부터 수집.
-    product_type: 1=새상품(기본) | 2=중고"""
+    floor_price=0 이면 처음부터 수집."""
     keys = load_keys()
     cid  = keys.get("client_id",  "").strip()
     csec = keys.get("client_secret", "").strip()
@@ -212,11 +203,6 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
             break
 
         for item in batch:
-            # productType 필터링: 중고 체크(2)일 때 pt=2(사업자)+pt=5(개인/위탁) 허용
-            pt = str(item.get("productType", ""))
-            if product_type == 2 and pt not in ("2", "5"):   # 중고 검색: pt=2 또는 pt=5만
-                continue
-            # product_type==1 (미체크): 필터 없음 → 전체 허용
             p_str = item.get("lprice", "0")
             price = int(p_str) if p_str.isdigit() else 0
             if price == 0:
@@ -239,16 +225,16 @@ def call_api_asc_from_floor(query: str, floor_price: int, max_items: int = 200, 
     return collected
 
 
-def search(query, ref_price=0, top_n=10, product_type: int = 1):
+def search(query, ref_price=0, top_n=10):
     # Step 1: sim 200개 (네이버쇼핑 랭킹순)
-    sim_items = call_api(query, 200, "sim", product_type=product_type)
+    sim_items = call_api(query, 200, "sim")
 
     # Step 2: anchor = sim 1위 상품 가격
     anchor_price = get_anchor_price(sim_items)
     price_floor  = int(anchor_price * MUSTIT_PRICE_FLOOR_RATIO) if anchor_price > 0 else 0
 
     # Step 3: asc 1위부터 탐색, floor 이상 첫 상품부터 200개 수집
-    asc_items = call_api_asc_from_floor(query, price_floor, 200, product_type=product_type)
+    asc_items = call_api_asc_from_floor(query, price_floor, 200)
 
     results = []
     seen    = set()
@@ -319,14 +305,14 @@ def _extract_naver_nmid(link: str) -> str:
     return ""
 
 
-def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False, product_type: int = 1):
+def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False):
     """각 플랫폼별로 독립적으로 가격 오름차순 정렬 후 top_n개 + 플랫폼 내부 순위 부여.
     5개 주요 몰(머스트잇/트렌비/SSG/롯데온/스마트스토어)에 해당 없는 항목은 "기타" 버킷에 담아
     mallName을 그대로 seller(=사이트명)로 노출.
     각 항목에는 네이버쇼핑 기본 랭킹순 노출 순위(naver_rank)도 부가.
     skip_enrich=True 이면 enrich_sellers_in_place 를 건너뜀 (Phase-1 fast path).
     Phase-2(skip_enrich=False)는 Phase-1 캐시를 재사용해 Naver API 재호출 생략."""
-    _cache_key = (query, ref_price, top_n, product_type)
+    _cache_key = (query, ref_price, top_n)
 
     # ── Phase-2: 캐시된 by_plat 재사용 (Naver API 재호출 없음) ──
     if not skip_enrich:
@@ -341,7 +327,7 @@ def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False, product_
             return by_plat, enrich_timing, _cached_mustit, _cached_anchor_p
 
     # ── Step 1: sim 200개 (네이버쇼핑 랭킹순) ────────────────────────────────────────
-    sim_items = call_api(query, 200, "sim", product_type=product_type)
+    sim_items = call_api(query, 200, "sim")
 
     # rank_map: sim 순서 → 네이버쇼핑 노출순위
     rank_map = {}
@@ -357,7 +343,7 @@ def search_by_platform(query, ref_price=0, top_n=10, skip_enrich=False, product_
     price_floor  = int(anchor_price * MUSTIT_PRICE_FLOOR_RATIO) if anchor_price > 0 else 0
 
     # ── Step 3: asc 1위부터 탐색, floor 이상 첫 상품부터 200개 수집 ──────────────────
-    asc_items = call_api_asc_from_floor(query, price_floor, 200, product_type=product_type)
+    asc_items = call_api_asc_from_floor(query, price_floor, 200)
 
     by_plat  = {p: [] for p in PLATFORM_MAP}
     by_plat["기타"] = []
@@ -2490,13 +2476,12 @@ def api_search():
     클라이언트는 이 결과로 가격 테이블을 먼저 렌더링한 뒤 /api/enrich 를 이어서 호출."""
     query        = request.args.get("query","").strip()
     ref_price    = float(request.args.get("ref_price", 0) or 0)
-    product_type = int(request.args.get("product_type", 1) or 1)
     if not query:
         return jsonify({"error": "query 파라미터 필요"}), 400
     try:
-        top10   = search(query, ref_price, 10, product_type=product_type)
+        top10   = search(query, ref_price, 10)
         # skip_enrich=True: 판매자 스크래핑 없이 즉시 반환
-        by_plat, _, mustit_ref, anchor_plat = search_by_platform(query, ref_price, 15, skip_enrich=True, product_type=product_type)
+        by_plat, _, mustit_ref, anchor_plat = search_by_platform(query, ref_price, 15, skip_enrich=True)
         return jsonify({
             "query": query, "top10": top10,
             "by_platform": by_plat,
@@ -2505,7 +2490,6 @@ def api_search():
             "enriched": False,
             "mustit_ref_price": mustit_ref,   # anchor 최저가 (하한선 기준점)
             "anchor_platform": anchor_plat,   # 기준점이 된 플랫폼명
-            "_debug_product_type": product_type,  # 진단용
         })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -2523,14 +2507,13 @@ def api_enrich():
     }"""
     query        = request.args.get("query","").strip()
     ref_price    = float(request.args.get("ref_price", 0) or 0)
-    product_type = int(request.args.get("product_type", 1) or 1)
     if not query:
         return jsonify({"error": "query 파라미터 필요"}), 400
     try:
         import time as _tm
         _t0 = _tm.time()
         # enrich 포함 전체 실행
-        by_plat, enrich_timing, mustit_ref, anchor_plat = search_by_platform(query, ref_price, 15, skip_enrich=False, product_type=product_type)
+        by_plat, enrich_timing, mustit_ref, anchor_plat = search_by_platform(query, ref_price, 15, skip_enrich=False)
         _t1 = _tm.time()
         cfg     = load_config()
         rows    = []

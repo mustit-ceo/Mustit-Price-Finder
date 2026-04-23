@@ -301,10 +301,6 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
         대량 조회
       </button>
     </div>
-    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
-      <input type="checkbox" id="used-chk" style="accent-color:var(--blue);width:13px;height:13px;cursor:pointer" onchange="onUsedChkChange()">
-      중고 검색
-    </label>
     <button class="btn" onclick="openMustitCsvModal()" style="margin-left:auto" title="머스트잇 상품번호 → 판매자ID 매핑 CSV 관리">
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M4 5h8M4 8h5M4 11h6"/></svg>
       상품번호 매핑
@@ -328,8 +324,6 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       Excel 다운로드
     </button>
   </div>
-
-  <div id="debug-pt-badge" style="display:none;margin:6px 0 2px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.4);color:var(--tx1)"></div>
 
   <div class="ph" id="ph" style="display:none">
     <div class="ph-thumb"><img id="phimg" src="" onerror="this.style.display='none'"/></div>
@@ -780,8 +774,6 @@ function toast(msg, type='err'){
 /* ── 현재 검색 쿼리 (Phase-2 취소 판단용) ── */
 let _currentQuery = '';
 
-function getProductType(){ return document.getElementById('used-chk')?.checked ? 2 : 1; }
-function onUsedChkChange(){ if(_currentQuery) doSearch(); }
 
 async function doSearch(){
   const q=document.getElementById('qinput').value.trim();
@@ -793,7 +785,7 @@ async function doSearch(){
   clearDetail();
   try{
     // ── Phase 1: 네이버 API만, 즉시 렌더링 ──
-    const data=await api(`/api/search?query=${encodeURIComponent(q)}&product_type=${getProductType()}`);
+    const data=await api(`/api/search?query=${encodeURIComponent(q)}`);
     if(_currentQuery !== q) return; // 새 검색이 시작됐으면 무시
     lastData=data;
     renderAll(data);
@@ -827,7 +819,7 @@ async function _startEnrich(q, phase1Data){
   _showSkeleton();
   const _t0 = Date.now();
   try{
-    const edata = await api(`/api/enrich?query=${encodeURIComponent(q)}&product_type=${getProductType()}`);
+    const edata = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
     if(_currentQuery !== q) return; // 다른 검색 시작됐으면 무시
     // Phase-2 데이터로 lastData 업데이트 후 재렌더
     lastData = Object.assign({}, phase1Data, {
@@ -858,13 +850,6 @@ async function _startEnrich(q, phase1Data){
 }
 
 function renderAll(data){
-  // 진단 배지: 서버가 받은 product_type 표시
-  const debugEl = document.getElementById('debug-pt-badge');
-  if(debugEl){
-    const pt = data._debug_product_type;
-    debugEl.textContent = pt === 2 ? '🟠 중고 필터 적용됨 (서버 수신: 2)' : pt === 1 ? '🔵 일반 필터 적용됨 (서버 수신: 1)' : `서버 수신: ${pt}`;
-    debugEl.style.display = 'inline-block';
-  }
   const top=data.top10?.[0];
   document.getElementById('ph').style.display='flex';
   document.getElementById('dlbtn').style.display='flex';
@@ -1952,10 +1937,10 @@ async function startBulk(){
       if(_bmMode==='exposure'){
         res.exposure = await api(`/api/mustit_exposure?query=${encodeURIComponent(q)}`);
       } else {
-        res.data = await api(`/api/search?query=${encodeURIComponent(q)}&product_type=${getProductType()}`);
+        res.data = await api(`/api/search?query=${encodeURIComponent(q)}`);
         if(_bmMode==='full' && !_bmAbort){
           st.textContent = '판매자 매칭 중...';
-          res.enrich = await api(`/api/enrich?query=${encodeURIComponent(q)}&product_type=${getProductType()}`);
+          res.enrich = await api(`/api/enrich?query=${encodeURIComponent(q)}`);
         }
       }
       res.ok = true;
