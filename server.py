@@ -2675,6 +2675,54 @@ def api_search_raw():
         "items_sample": simplified[:50],  # 앞 50개만
     })
 
+@app.route("/api/debug/pt")
+def debug_producttype():
+    """플랫폼별 productType 크로스탭 디버그.
+    /api/debug/pt?query=AP0232&sort=sim"""
+    query = request.args.get("query", "").strip()
+    sort  = request.args.get("sort", "sim")
+    if not query:
+        return jsonify({"error": "query 파라미터 필요"}), 400
+    try:
+        items = call_api(query, max_items=200, sort=sort)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    # 플랫폼 × productType 크로스탭
+    from collections import defaultdict
+    crosstab = defaultdict(lambda: defaultdict(int))
+    examples = defaultdict(list)   # (platform, pt) → 샘플 상품명 최대 3개
+
+    pt_labels = {"1": "새상품", "2": "중고", "3": "렌탈", "4": "리퍼브", "5": "타입5", "": "없음"}
+
+    for it in items:
+        plat = detect_platform(it) or "(기타)"
+        pt   = str(it.get("productType", ""))
+        crosstab[plat][pt] += 1
+        key = f"{plat}|{pt}"
+        if len(examples[key]) < 3:
+            title = re.sub(r"<[^>]+>", "", it.get("title", ""))[:40]
+            examples[key].append(f"{title} / {it.get('lprice','')}원 / {it.get('mallName','')}")
+
+    result = {}
+    for plat, pt_counts in sorted(crosstab.items()):
+        result[plat] = {}
+        for pt, cnt in sorted(pt_counts.items()):
+            label = pt_labels.get(pt, f"타입{pt}")
+            key = f"{plat}|{pt}"
+            result[plat][f"{label}(pt={pt})"] = {
+                "count": cnt,
+                "samples": examples[key]
+            }
+
+    return jsonify({
+        "query": query,
+        "sort": sort,
+        "total": len(items),
+        "platform_x_productType": result,
+    })
+
+
 @app.route("/api/debug/ssg")
 def debug_ssg():
     """SSG 판매자·혜택가 추출 디버그. ?url=<SSG_PDP_URL>"""
